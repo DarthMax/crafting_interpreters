@@ -6,22 +6,22 @@ use crate::scanner::TokenType::*;
 
 mod text_iterator;
 
-struct Scanner {
+pub struct Scanner {
     code: String,
 }
 
 impl Scanner {
-    pub(crate) fn new(code: String) -> Self {
+    pub fn new(code: String) -> Self {
         Scanner { code }
     }
 
-    pub(crate) fn scan(&self) -> Vec<Token> {
+    pub fn scan(&self) -> Vec<Token> {
         let mut tokens: Vec<Token> = Vec::new();
         let mut text_iter = SourceIterator::new(self.code.clone());
 
         loop {
             match text_iter.next() {
-                Some (e@Entry {value, position, line, column}) => {
+                Some (e@Entry {value, line, column, ..}) => {
                     match value {
                         '(' => tokens.push(Token::new(LeftParent, line, column)),
                         ')' => tokens.push(Token::new(RightParen, line, column)),
@@ -56,8 +56,8 @@ impl Scanner {
                                 tokens.push(Token::new(Slash, line, column))
                             }
                         }
-                        ' ' | '\r' | '\t' => (),
-                        '"' => match scan_string(&mut text_iter, position, line, column) {
+                        ' ' | '\r' | '\t' | '\n' => (),
+                        '"' => match scan_string(&mut text_iter, e) {
                             Ok(token) => tokens.push(token),
                             Err(e) => {
                                 println!("Error!: {}", e);
@@ -67,7 +67,7 @@ impl Scanner {
                         value if value.is_numeric() => tokens.push(scan_number(&mut text_iter, e)),
                         value if value.is_alphanumeric() => tokens.push(scan_identifier(&mut text_iter, e)),
                         value => {
-                            println!("Error!: Unrecognized Character {}", value);
+                            println!("Error!: Unrecognized Character '{}'", value);
                             break;
                         }
                     }
@@ -78,7 +78,7 @@ impl Scanner {
 
         return tokens;
 
-        fn scan_string(char_iter: &mut SourceIterator, start: u32, column: u32, line: u32) -> Result<Token, String> {
+        fn scan_string(char_iter: &mut SourceIterator, first_entry: Entry) -> Result<Token, String> {
             let entry = char_iter.scan_until('"');
 
             if entry.is_none() {
@@ -87,9 +87,9 @@ impl Scanner {
 
             let entry = entry.unwrap();
 
-            let value = char_iter.substring(start, entry.position - 1);
+            let value = char_iter.substring(first_entry.position + 1, entry.position - 1);
             let token = StringToken { value };
-            Ok(Token::new(token, line, column))
+            Ok(Token::new(token, first_entry.line, first_entry.column))
         }
 
         fn scan_number(char_iter: &mut SourceIterator, first_entry: Entry) -> Token {
@@ -117,13 +117,12 @@ impl Scanner {
         fn scan_identifier(char_iter: &mut SourceIterator, first_entry: Entry) -> Token {
             let mut last_entry = first_entry;
             loop {
-                match char_iter.next() {
-                    Some(e) if !e.value.is_alphanumeric() => {
-                        last_entry = e;
+                match char_iter.peek() {
+                    Some(e) if !e.is_alphanumeric() => {
                         break
                     },
                     None => break,
-                    Some(e) => last_entry = e
+                    _ => last_entry = char_iter.next().unwrap()
                 }
             }
 
@@ -155,15 +154,15 @@ impl Scanner {
 }
 
 
-#[derive(Debug)]
-struct Token {
+#[derive(Debug, PartialEq)]
+pub struct Token {
     token_type: TokenType,
     line: u32,
     column: u32,
 }
 
 impl Token {
-    fn new(token_type: TokenType, line: u32, column: u32) -> Token {
+    pub fn new(token_type: TokenType, line: u32, column: u32) -> Token {
         Token {
             token_type,
             line,
@@ -172,8 +171,8 @@ impl Token {
     }
 }
 
-#[derive(Debug)]
-enum TokenType {
+#[derive(Debug, PartialEq)]
+pub enum TokenType {
     // Single-character tokens.
     LeftParent,
     RightParen,

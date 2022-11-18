@@ -1,0 +1,6 @@
+vec![
+
+Token::new(Print, 1,  0 ),
+Token::new(StringToken { value: "Hello, World!".to_string() }, 1, 6 )
+
+]

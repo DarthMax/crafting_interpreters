@@ -1,0 +1,27 @@
+vec![
+
+Token::new( Var,  0,  0 ),
+Token::new( Identifier { value: "imAVariable".to_string() },  0,  4 ),
+Token::new( Equal,  0,  16 ),
+Token::new( StringToken { value: "here is my value".to_string() },  0,  18 ),
+Token::new( Semicolon,  0,  36 ),
+Token::new( Var,  1,  0 ),
+Token::new( Identifier { value: "iAmNil".to_string() },  1,  4 ),
+Token::new( Semicolon,  1,  10 ),
+Token::new( Var,  3,  0 ),
+Token::new( Identifier { value: "breakfast".to_string() },  3,  4 ),
+Token::new( Equal,  3,  14 ),
+Token::new( StringToken { value: "bagels".to_string() },  3,  16 ),
+Token::new( Semicolon,  3,  24 ),
+Token::new( Print,  4,  0 ),
+Token::new( Identifier { value: "breakfast".to_string() },  4,  6 ),
+Token::new( Semicolon,  4,  15 ),
+Token::new( Identifier { value: "breakfast".to_string() },  5,  0 ),
+Token::new( Equal,  5,  10 ),
+Token::new( StringToken { value: "beignets".to_string() },  5,  12 ),
+Token::new( Semicolon,  5,  22 ),
+Token::new( Print,  6,  0 ),
+Token::new( Identifier { value: "breakfast".to_string() },  6,  6 ),
+Token::new( Semicolon,  6,  15 ),
+
+]

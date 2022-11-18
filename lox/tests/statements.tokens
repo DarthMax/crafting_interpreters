@@ -1,0 +1,17 @@
+vec![
+
+Token::new( Print,  0,  0 ),
+Token::new( StringToken { value: "Hello, World!".to_string() },  0,  6 ),
+Token::new( Semicolon,  0,  21 ),
+Token::new( StringToken { value: "some expression".to_string() },  2,  0 ),
+Token::new( Semicolon,  2,  17 ),
+Token::new( LeftBrace,  4,  0 ),
+Token::new( Print,  5,  4 ),
+Token::new( StringToken { value: "One statement.".to_string() },  5,  10 ),
+Token::new( Semicolon,  5,  26 ),
+Token::new( Print,  6,  4 ),
+Token::new( StringToken { value: "Two statements.".to_string() },  6,  10 ),
+Token::new( Semicolon,  6,  27 ),
+Token::new( RightBrace,  7,  0 ),
+
+]

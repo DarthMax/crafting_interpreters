@@ -1,0 +1,20 @@
+vec![
+
+Token::new( True,  0,  0 ),
+Token::new( Semicolon,  0,  4 ),
+Token::new( False,  1,  0 ),
+Token::new( Semicolon,  1,  5 ),
+Token::new( Number { value: 1234.0 },  4,  0 ),
+Token::new( Semicolon,  4,  4 ),
+Token::new( Number { value: 12.34 },  5,  0 ),
+Token::new( Semicolon,  5,  5 ),
+Token::new( StringToken { value: "I am a string".to_string() },  7,  0 ),
+Token::new( Semicolon,  7,  15 ),
+Token::new( StringToken { value: "".to_string() },  8,  0 ),
+Token::new( Semicolon,  8,  2 ),
+Token::new( StringToken { value: "123".to_string() },  9,  0 ),
+Token::new( Semicolon,  9,  5 ),
+Token::new( Nil,  11,  0 ),
+Token::new( Semicolon,  11,  3 ),
+
+]
