@@ -1,10 +1,10 @@
 use std::string::String;
 
 
-use crate::scanner::text_iterator::{Entry, SourceIterator};
+use crate::scanner::source_iterator::{Entry, SourceIterator};
 use crate::scanner::TokenType::*;
 
-mod text_iterator;
+mod source_iterator;
 
 pub struct Scanner {
     code: String,
@@ -17,10 +17,10 @@ impl Scanner {
 
     pub fn scan(&self) -> Vec<Token> {
         let mut tokens: Vec<Token> = Vec::new();
-        let mut text_iter = SourceIterator::new(self.code.clone());
+        let mut source_iter = SourceIterator::new(self.code.clone());
 
         loop {
-            match text_iter.next() {
+            match source_iter.next() {
                 Some (e@Entry {value, line, column, ..}) => {
                     match value {
                         '(' => tokens.push(Token::new(LeftParent, line, column)),
@@ -34,38 +34,38 @@ impl Scanner {
                         ';' => tokens.push(Token::new(Semicolon, line, column)),
                         '*' => tokens.push(Token::new(Star, line, column)),
                         '!' => {
-                            let token = if text_iter.next_match('=') { BangEqual } else { Bang };
+                            let token = if source_iter.next_match('=') { BangEqual } else { Bang };
                             tokens.push(Token::new(token, line, column))
                         }
                         '=' => {
-                            let token = if text_iter.next_match('=') { EqualEqual } else { Equal };
+                            let token = if source_iter.next_match('=') { EqualEqual } else { Equal };
                             tokens.push(Token::new(token, line, column))
                         }
                         '<' => {
-                            let token = if text_iter.next_match('=') { LessEqual } else { Less };
+                            let token = if source_iter.next_match('=') { LessEqual } else { Less };
                             tokens.push(Token::new(token, line, column))
                         }
                         '>' => {
-                            let token = if text_iter.next_match('=') { GreaterEqual } else { Greater };
+                            let token = if source_iter.next_match('=') { GreaterEqual } else { Greater };
                             tokens.push(Token::new(token, line, column))
                         }
                         '/' => {
-                            if text_iter.next_match('/') {
-                                text_iter.scan_until('\n');
+                            if source_iter.next_match('/') {
+                                source_iter.scan_until('\n');
                             } else {
                                 tokens.push(Token::new(Slash, line, column))
                             }
                         }
                         ' ' | '\r' | '\t' | '\n' => (),
-                        '"' => match scan_string(&mut text_iter, e) {
+                        '"' => match scan_string(&mut source_iter, e) {
                             Ok(token) => tokens.push(token),
                             Err(e) => {
                                 println!("Error!: {}", e);
                                 break;
                             }
                         }
-                        value if value.is_numeric() => tokens.push(scan_number(&mut text_iter, e)),
-                        value if value.is_alphanumeric() => tokens.push(scan_identifier(&mut text_iter, e)),
+                        value if value.is_numeric() => tokens.push(scan_number(&mut source_iter, e)),
+                        value if value.is_alphanumeric() => tokens.push(scan_identifier(&mut source_iter, e)),
                         value => {
                             println!("Error!: Unrecognized Character '{}'", value);
                             break;
@@ -78,8 +78,8 @@ impl Scanner {
 
         return tokens;
 
-        fn scan_string(char_iter: &mut SourceIterator, first_entry: Entry) -> Result<Token, String> {
-            let entry = char_iter.scan_until('"');
+        fn scan_string(source_iter: &mut SourceIterator, first_entry: Entry) -> Result<Token, String> {
+            let entry = source_iter.scan_until('"');
 
             if entry.is_none() {
                 return Err("Unterminated String".to_string());
@@ -87,46 +87,46 @@ impl Scanner {
 
             let entry = entry.unwrap();
 
-            let value = char_iter.substring(first_entry.position + 1, entry.position - 1);
+            let value = source_iter.substring(first_entry.position + 1, entry.position - 1);
             let token = StringToken { value };
             Ok(Token::new(token, first_entry.line, first_entry.column))
         }
 
-        fn scan_number(char_iter: &mut SourceIterator, first_entry: Entry) -> Token {
+        fn scan_number(source_iter: &mut SourceIterator, first_entry: Entry) -> Token {
             let mut found_dot = false;
 
             let mut last_entry = first_entry.clone();
             loop {
-                match (char_iter.peek(), char_iter.peek_next()) {
+                match (source_iter.peek(), source_iter.peek_next()) {
                     (Some(c), _) if c.is_numeric() => {
-                        last_entry = char_iter.next().unwrap();
+                        last_entry = source_iter.next().unwrap();
                     }
                     (Some(c), Some(d)) if c == '.' && !found_dot && d.is_numeric() => {
                         found_dot = true;
-                        last_entry = char_iter.next().unwrap();
+                        last_entry = source_iter.next().unwrap();
                     }
                     _ => break
                 }
             }
 
-            let value = char_iter.substring(first_entry.position, last_entry.position).parse::<f64>().unwrap();
+            let value = source_iter.substring(first_entry.position, last_entry.position).parse::<f64>().unwrap();
             let token_type = Number { value };
             Token::new(token_type, first_entry.line, first_entry.column)
         }
 
-        fn scan_identifier(char_iter: &mut SourceIterator, first_entry: Entry) -> Token {
+        fn scan_identifier(source_iter: &mut SourceIterator, first_entry: Entry) -> Token {
             let mut last_entry = first_entry;
             loop {
-                match char_iter.peek() {
+                match source_iter.peek() {
                     Some(e) if !e.is_alphanumeric() => {
                         break
                     },
                     None => break,
-                    _ => last_entry = char_iter.next().unwrap()
+                    _ => last_entry = source_iter.next().unwrap()
                 }
             }
 
-            let value = char_iter.substring(first_entry.position, last_entry.position);
+            let value = source_iter.substring(first_entry.position, last_entry.position);
 
             let token_type = match value.as_ref() {
                 "and" => And,
