@@ -1,3 +1,4 @@
+mod expression;
 mod scanner;
 
 pub use scanner::Scanner;
