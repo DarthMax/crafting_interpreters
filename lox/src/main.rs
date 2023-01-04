@@ -1,12 +1,12 @@
-use std::{env, fs, io};
 use std::ffi::OsString;
 use std::io::Write;
-use std::path::Path;
-use lox::Scanner;
-use crate::scanner::Token;
+use std::{env, fs, io};
 
+use crate::scanner::Scanner;
+
+mod expression;
+mod parser;
 mod scanner;
-
 
 fn main() {
     let mut args = env::args_os().skip(1);
@@ -26,8 +26,8 @@ fn main() {
         Err(e) => {
             eprintln!("{}", e);
             std::process::exit(1)
-        },
-        _ => std::process::exit(0)
+        }
+        _ => std::process::exit(0),
     }
 }
 
@@ -63,5 +63,9 @@ fn run_repl() -> io::Result<()> {
 
 fn parse(source: String) {
     let scanner = Scanner::new(source);
-    scanner.scan().into_iter().for_each(|token| println!("{:?}", token));
+    let tokens = scanner.scan();
+    match parser::parse(&tokens) {
+        Ok(expression) => println!("{}", expression.pretty()),
+        Err(error) => eprintln!("{}", error),
+    };
 }

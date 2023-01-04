@@ -1,5 +1,5 @@
+use std::fmt::{Display, Formatter};
 use std::string::String;
-
 
 use crate::scanner::source_iterator::{Entry, SourceIterator};
 use crate::scanner::TokenType::*;
@@ -21,64 +21,90 @@ impl Scanner {
 
         loop {
             match source_iter.next() {
-                Some (e@Entry {value, line, column, ..}) => {
-                    match value {
-                        '(' => tokens.push(Token::new(LeftParent, line, column)),
-                        ')' => tokens.push(Token::new(RightParen, line, column)),
-                        '{' => tokens.push(Token::new(LeftBrace, line, column)),
-                        '}' => tokens.push(Token::new(RightBrace, line, column)),
-                        ',' => tokens.push(Token::new(Comma, line, column)),
-                        '.' => tokens.push(Token::new(Dot, line, column)),
-                        '-' => tokens.push(Token::new(Minus, line, column)),
-                        '+' => tokens.push(Token::new(Plus, line, column)),
-                        ';' => tokens.push(Token::new(Semicolon, line, column)),
-                        '*' => tokens.push(Token::new(Star, line, column)),
-                        '!' => {
-                            let token = if source_iter.next_match('=') { BangEqual } else { Bang };
-                            tokens.push(Token::new(token, line, column))
-                        }
-                        '=' => {
-                            let token = if source_iter.next_match('=') { EqualEqual } else { Equal };
-                            tokens.push(Token::new(token, line, column))
-                        }
-                        '<' => {
-                            let token = if source_iter.next_match('=') { LessEqual } else { Less };
-                            tokens.push(Token::new(token, line, column))
-                        }
-                        '>' => {
-                            let token = if source_iter.next_match('=') { GreaterEqual } else { Greater };
-                            tokens.push(Token::new(token, line, column))
-                        }
-                        '/' => {
-                            if source_iter.next_match('/') {
-                                source_iter.scan_until('\n');
-                            } else {
-                                tokens.push(Token::new(Slash, line, column))
-                            }
-                        }
-                        ' ' | '\r' | '\t' | '\n' => (),
-                        '"' => match scan_string(&mut source_iter, e) {
-                            Ok(token) => tokens.push(token),
-                            Err(e) => {
-                                println!("Error!: {}", e);
-                                break;
-                            }
-                        }
-                        value if value.is_numeric() => tokens.push(scan_number(&mut source_iter, e)),
-                        value if value.is_alphanumeric() => tokens.push(scan_identifier(&mut source_iter, e)),
-                        value => {
-                            println!("Error!: Unrecognized Character '{}'", value);
-                            break;
+                Some(
+                    e @ Entry {
+                        value,
+                        line,
+                        column,
+                        ..
+                    },
+                ) => match value {
+                    '(' => tokens.push(Token::new(LeftParent, line, column)),
+                    ')' => tokens.push(Token::new(RightParent, line, column)),
+                    '{' => tokens.push(Token::new(LeftBrace, line, column)),
+                    '}' => tokens.push(Token::new(RightBrace, line, column)),
+                    ',' => tokens.push(Token::new(Comma, line, column)),
+                    '.' => tokens.push(Token::new(Dot, line, column)),
+                    '-' => tokens.push(Token::new(Minus, line, column)),
+                    '+' => tokens.push(Token::new(Plus, line, column)),
+                    ';' => tokens.push(Token::new(Semicolon, line, column)),
+                    '*' => tokens.push(Token::new(Star, line, column)),
+                    '!' => {
+                        let token = if source_iter.next_match('=') {
+                            BangEqual
+                        } else {
+                            Bang
+                        };
+                        tokens.push(Token::new(token, line, column))
+                    }
+                    '=' => {
+                        let token = if source_iter.next_match('=') {
+                            EqualEqual
+                        } else {
+                            Equal
+                        };
+                        tokens.push(Token::new(token, line, column))
+                    }
+                    '<' => {
+                        let token = if source_iter.next_match('=') {
+                            LessEqual
+                        } else {
+                            Less
+                        };
+                        tokens.push(Token::new(token, line, column))
+                    }
+                    '>' => {
+                        let token = if source_iter.next_match('=') {
+                            GreaterEqual
+                        } else {
+                            Greater
+                        };
+                        tokens.push(Token::new(token, line, column))
+                    }
+                    '/' => {
+                        if source_iter.next_match('/') {
+                            source_iter.scan_until('\n');
+                        } else {
+                            tokens.push(Token::new(Slash, line, column))
                         }
                     }
+                    ' ' | '\r' | '\t' | '\n' => (),
+                    '"' => match scan_string(&mut source_iter, e) {
+                        Ok(token) => tokens.push(token),
+                        Err(e) => {
+                            println!("Error!: {}", e);
+                            break;
+                        }
+                    },
+                    value if value.is_numeric() => tokens.push(scan_number(&mut source_iter, e)),
+                    value if value.is_alphanumeric() => {
+                        tokens.push(scan_identifier(&mut source_iter, e))
+                    }
+                    value => {
+                        println!("Error!: Unrecognized Character '{}'", value);
+                        break;
+                    }
                 },
-                None => break
+                None => break,
             }
         }
 
         return tokens;
 
-        fn scan_string(source_iter: &mut SourceIterator, first_entry: Entry) -> Result<Token, String> {
+        fn scan_string(
+            source_iter: &mut SourceIterator,
+            first_entry: Entry,
+        ) -> Result<Token, String> {
             let entry = source_iter.scan_until('"');
 
             if entry.is_none() {
@@ -105,11 +131,14 @@ impl Scanner {
                         found_dot = true;
                         last_entry = source_iter.next().unwrap();
                     }
-                    _ => break
+                    _ => break,
                 }
             }
 
-            let value = source_iter.substring(first_entry.position, last_entry.position).parse::<f64>().unwrap();
+            let value = source_iter
+                .substring(first_entry.position, last_entry.position)
+                .parse::<f64>()
+                .unwrap();
             let token_type = Number { value };
             Token::new(token_type, first_entry.line, first_entry.column)
         }
@@ -118,11 +147,9 @@ impl Scanner {
             let mut last_entry = first_entry;
             loop {
                 match source_iter.peek() {
-                    Some(e) if !e.is_alphanumeric() => {
-                        break
-                    },
+                    Some(e) if !e.is_alphanumeric() => break,
                     None => break,
-                    _ => last_entry = source_iter.next().unwrap()
+                    _ => last_entry = source_iter.next().unwrap(),
                 }
             }
 
@@ -145,7 +172,7 @@ impl Scanner {
                 "true" => True,
                 "var" => Var,
                 "while" => While,
-                _ => Identifier { value }
+                _ => Identifier { value },
             };
 
             Token::new(token_type, first_entry.line, first_entry.column)
@@ -153,12 +180,11 @@ impl Scanner {
     }
 }
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token {
-    token_type: TokenType,
-    line: u32,
-    column: u32,
+    pub token_type: TokenType,
+    pub line: u32,
+    pub column: u32,
 }
 
 impl Token {
@@ -171,11 +197,11 @@ impl Token {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParent,
-    RightParen,
+    RightParent,
     LeftBrace,
     RightBrace,
     Comma,
@@ -197,15 +223,9 @@ pub enum TokenType {
     LessEqual,
 
     // Literals.
-    Identifier {
-        value: String
-    },
-    StringToken {
-        value: String
-    },
-    Number {
-        value: f64
-    },
+    Identifier { value: String },
+    StringToken { value: String },
+    Number { value: f64 },
 
     // Keywords.
     And,
@@ -228,6 +248,18 @@ pub enum TokenType {
     Eof,
 }
 
+impl Display for TokenType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Plus => write!(f, "+"),
+            Star => write!(f, "*"),
+            LeftParent => write!(f, "("),
+            RightParent => write!(f, ")"),
+            _ => write!(f, ""),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,5 +271,3 @@ mod tests {
         println!("{:?}", tokens)
     }
 }
-
-

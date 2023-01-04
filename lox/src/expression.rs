@@ -5,8 +5,10 @@ use crate::expression::BinaryOp::*;
 use crate::expression::Expression::*;
 use crate::expression::LiteralType::*;
 use crate::expression::UnaryOp::*;
+use crate::scanner::TokenType;
+use crate::scanner::TokenType::*;
 
-enum Expression {
+pub enum Expression {
     Unary {
         inner: Box<Expression>,
         op: UnaryOp,
@@ -25,7 +27,7 @@ enum Expression {
 }
 
 impl Expression {
-    fn pretty(&self) -> String {
+    pub fn pretty(&self) -> String {
         fn pretty(expr: &Expression, level: u32) -> String {
             let mut prefix = if level == 0 {
                 "".to_string()
@@ -63,11 +65,12 @@ impl Expression {
     }
 }
 
-enum LiteralType {
+pub enum LiteralType {
     NumberLit { value: f64 },
     StringLit { value: String },
     TrueLit,
     FalseLit,
+    NillLit,
 }
 
 impl fmt::Display for LiteralType {
@@ -77,11 +80,12 @@ impl fmt::Display for LiteralType {
             StringLit { value } => write!(f, "\"{}\"", value),
             TrueLit => write!(f, "true"),
             FalseLit => write!(f, "false"),
+            NillLit => write!(f, "nil"),
         }
     }
 }
 
-enum BinaryOp {
+pub enum BinaryOp {
     Equals,
     NotEquals,
     LessThan,
@@ -111,7 +115,27 @@ impl fmt::Display for BinaryOp {
     }
 }
 
-enum UnaryOp {
+impl TryFrom<&TokenType> for BinaryOp {
+    type Error = &'static str;
+
+    fn try_from(token_type: &TokenType) -> Result<Self, Self::Error> {
+        match token_type {
+            EqualEqual => Ok(Equals),
+            BangEqual => Ok(NotEquals),
+            Greater => Ok(GreaterThan),
+            GreaterEqual => Ok(GreaterThanOrEquals),
+            Less => Ok(LessThan),
+            LessEqual => Ok(LessThanOrEquals),
+            Minus => Ok(Subtract),
+            Plus => Ok(Add),
+            Slash => Ok(Divide),
+            Star => Ok(Multiply),
+            _ => Err("Could not do this"),
+        }
+    }
+}
+
+pub enum UnaryOp {
     Not,
     Negative,
 }
@@ -121,6 +145,18 @@ impl fmt::Display for UnaryOp {
         match self {
             Not => write!(f, "Not"),
             Negative => write!(f, "Negative"),
+        }
+    }
+}
+
+impl TryFrom<&TokenType> for UnaryOp {
+    type Error = String;
+
+    fn try_from(value: &TokenType) -> Result<Self, Self::Error> {
+        match value {
+            Bang => Ok(Not),
+            Minus => Ok(Negative),
+            other => Err(format!("Cannot convert {:?} into UnaryOp", other).to_string()),
         }
     }
 }

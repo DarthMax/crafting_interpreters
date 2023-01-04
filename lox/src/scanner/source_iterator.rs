@@ -10,7 +10,12 @@ pub(crate) struct Entry {
 
 impl Entry {
     fn new(value: char, position: u32, column: u32, line: u32) -> Entry {
-        Entry { value, position, column, line }
+        Entry {
+            value,
+            position,
+            column,
+            line,
+        }
     }
 }
 
@@ -33,12 +38,10 @@ impl Iterator for SourceIterator {
                 self.peek = self.peek_next.take();
                 c
             }
-            None => {
-                match self.peek_next.take() {
-                    Some(c) => c,
-                    None => self.chars.next()
-                }
-            }
+            None => match self.peek_next.take() {
+                Some(c) => c,
+                None => self.chars.next(),
+            },
         };
 
         match next_value {
@@ -58,9 +61,9 @@ impl Iterator for SourceIterator {
                         self.column += 1;
                     }
                 };
-                Some(Entry::new(e, position , column, line))
+                Some(Entry::new(e, position, column, line))
             }
-            None => None
+            None => None,
         }
     }
 }
@@ -89,9 +92,7 @@ impl SourceIterator {
         self.peek();
 
         let chars = &mut self.chars;
-        *self.peek_next.get_or_insert_with(|| {
-            chars.next()
-        })
+        *self.peek_next.get_or_insert_with(|| chars.next())
     }
 
     pub(crate) fn next_match(&mut self, expected: char) -> bool {
@@ -100,7 +101,7 @@ impl SourceIterator {
                 self.next();
                 true
             }
-            _ => false
+            _ => false,
         }
     }
 
@@ -109,7 +110,7 @@ impl SourceIterator {
             match self.next() {
                 Some(c) if c.value == target => return Some(c),
                 None => return None,
-                Some(_) => ()
+                Some(_) => (),
             }
         }
     }
@@ -123,6 +124,7 @@ impl SourceIterator {
 #[cfg(test)]
 mod tests {
     use crate::scanner::SourceIterator;
+
     use super::*;
 
     #[test]
@@ -233,7 +235,7 @@ mod tests {
     #[test]
     fn test_substring() {
         let iterator = SourceIterator::new("BarBaz".to_string());
-        assert_eq!(iterator.substring(1,2), "ar");
-        assert_eq!(iterator.substring(0,0), "B");
+        assert_eq!(iterator.substring(1, 2), "ar");
+        assert_eq!(iterator.substring(0, 0), "B");
     }
 }
