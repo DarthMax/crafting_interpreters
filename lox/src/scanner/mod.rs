@@ -1,10 +1,10 @@
-use std::fmt::{Display, Formatter};
 use std::string::String;
 
 use crate::scanner::source_iterator::{Entry, SourceIterator};
-use crate::scanner::TokenType::*;
+use crate::token::TokenType::*;
+use crate::token::{Token, TokenType};
 
-mod source_iterator;
+pub(crate) mod source_iterator;
 
 pub struct Scanner {
     code: String,
@@ -21,61 +21,26 @@ impl Scanner {
 
         loop {
             match source_iter.next() {
-                Some(
-                    e @ Entry {
-                        value,
-                        line,
-                        column,
-                        ..
-                    },
-                ) => match value {
-                    '(' => tokens.push(Token::new(LeftParent, line, column)),
-                    ')' => tokens.push(Token::new(RightParent, line, column)),
-                    '{' => tokens.push(Token::new(LeftBrace, line, column)),
-                    '}' => tokens.push(Token::new(RightBrace, line, column)),
-                    ',' => tokens.push(Token::new(Comma, line, column)),
-                    '.' => tokens.push(Token::new(Dot, line, column)),
-                    '-' => tokens.push(Token::new(Minus, line, column)),
-                    '+' => tokens.push(Token::new(Plus, line, column)),
-                    ';' => tokens.push(Token::new(Semicolon, line, column)),
-                    '*' => tokens.push(Token::new(Star, line, column)),
-                    '!' => {
-                        let token = if source_iter.next_match('=') {
-                            BangEqual
-                        } else {
-                            Bang
-                        };
-                        tokens.push(Token::new(token, line, column))
-                    }
-                    '=' => {
-                        let token = if source_iter.next_match('=') {
-                            EqualEqual
-                        } else {
-                            Equal
-                        };
-                        tokens.push(Token::new(token, line, column))
-                    }
-                    '<' => {
-                        let token = if source_iter.next_match('=') {
-                            LessEqual
-                        } else {
-                            Less
-                        };
-                        tokens.push(Token::new(token, line, column))
-                    }
-                    '>' => {
-                        let token = if source_iter.next_match('=') {
-                            GreaterEqual
-                        } else {
-                            Greater
-                        };
-                        tokens.push(Token::new(token, line, column))
-                    }
+                Some(e) => match e.value {
+                    '(' => tokens.push(Token::new(LeftParent, e, 1)),
+                    ')' => tokens.push(Token::new(RightParent, e, 1)),
+                    '{' => tokens.push(Token::new(LeftBrace, e, 1)),
+                    '}' => tokens.push(Token::new(RightBrace, e, 1)),
+                    ',' => tokens.push(Token::new(Comma, e, 1)),
+                    '.' => tokens.push(Token::new(Dot, e, 1)),
+                    '-' => tokens.push(Token::new(Minus, e, 1)),
+                    '+' => tokens.push(Token::new(Plus, e, 1)),
+                    ';' => tokens.push(Token::new(Semicolon, e, 1)),
+                    '*' => tokens.push(Token::new(Star, e, 1)),
+                    '!' => scan_with_equal(&mut tokens, &mut source_iter, BangEqual, Bang, e),
+                    '=' => scan_with_equal(&mut tokens, &mut source_iter, EqualEqual, Equal, e),
+                    '<' => scan_with_equal(&mut tokens, &mut source_iter, LessEqual, Less, e),
+                    '>' => scan_with_equal(&mut tokens, &mut source_iter, GreaterEqual, Greater, e),
                     '/' => {
                         if source_iter.next_match('/') {
                             source_iter.scan_until('\n');
                         } else {
-                            tokens.push(Token::new(Slash, line, column))
+                            tokens.push(Token::new(Slash, e, 1))
                         }
                     }
                     ' ' | '\r' | '\t' | '\n' => (),
@@ -101,6 +66,20 @@ impl Scanner {
 
         return tokens;
 
+        fn scan_with_equal(
+            tokens: &mut Vec<Token>,
+            source_iter: &mut SourceIterator,
+            a: TokenType,
+            b: TokenType,
+            entry: Entry,
+        ) {
+            if source_iter.next_match('=') {
+                tokens.push(Token::new(a, entry, 2))
+            } else {
+                tokens.push(Token::new(b, entry, 1))
+            };
+        }
+
         fn scan_string(
             source_iter: &mut SourceIterator,
             first_entry: Entry,
@@ -115,7 +94,11 @@ impl Scanner {
 
             let value = source_iter.substring(first_entry.position + 1, entry.position - 1);
             let token = StringToken { value };
-            Ok(Token::new(token, first_entry.line, first_entry.column))
+            Ok(Token::new(
+                token,
+                first_entry,
+                entry.position - first_entry.position + 1,
+            ))
         }
 
         fn scan_number(source_iter: &mut SourceIterator, first_entry: Entry) -> Token {
@@ -140,7 +123,11 @@ impl Scanner {
                 .parse::<f64>()
                 .unwrap();
             let token_type = Number { value };
-            Token::new(token_type, first_entry.line, first_entry.column)
+            Token::new(
+                token_type,
+                first_entry,
+                last_entry.position - first_entry.position + 1,
+            )
         }
 
         fn scan_identifier(source_iter: &mut SourceIterator, first_entry: Entry) -> Token {
@@ -175,87 +162,11 @@ impl Scanner {
                 _ => Identifier { value },
             };
 
-            Token::new(token_type, first_entry.line, first_entry.column)
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Token {
-    pub token_type: TokenType,
-    pub line: u32,
-    pub column: u32,
-}
-
-impl Token {
-    pub fn new(token_type: TokenType, line: u32, column: u32) -> Token {
-        Token {
-            token_type,
-            line,
-            column,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum TokenType {
-    // Single-character tokens.
-    LeftParent,
-    RightParent,
-    LeftBrace,
-    RightBrace,
-    Comma,
-    Dot,
-    Minus,
-    Plus,
-    Semicolon,
-    Slash,
-    Star,
-
-    // One or two character tokens.
-    Bang,
-    BangEqual,
-    Equal,
-    EqualEqual,
-    Greater,
-    GreaterEqual,
-    Less,
-    LessEqual,
-
-    // Literals.
-    Identifier { value: String },
-    StringToken { value: String },
-    Number { value: f64 },
-
-    // Keywords.
-    And,
-    Class,
-    Else,
-    False,
-    Fun,
-    For,
-    If,
-    Nil,
-    Or,
-    Print,
-    Return,
-    Super,
-    This,
-    True,
-    Var,
-    While,
-
-    Eof,
-}
-
-impl Display for TokenType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Plus => write!(f, "+"),
-            Star => write!(f, "*"),
-            LeftParent => write!(f, "("),
-            RightParent => write!(f, ")"),
-            _ => write!(f, ""),
+            Token::new(
+                token_type,
+                first_entry,
+                last_entry.position - first_entry.position + 1,
+            )
         }
     }
 }

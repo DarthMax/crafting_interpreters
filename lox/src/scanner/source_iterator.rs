@@ -3,19 +3,12 @@ use std::vec::IntoIter;
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub(crate) struct Entry {
     pub(crate) value: char,
-    pub(crate) position: u32,
-    pub(crate) column: u32,
-    pub(crate) line: u32,
+    pub(crate) position: usize,
 }
 
 impl Entry {
-    fn new(value: char, position: u32, column: u32, line: u32) -> Entry {
-        Entry {
-            value,
-            position,
-            column,
-            line,
-        }
+    fn new(value: char, position: usize) -> Entry {
+        Entry { value, position }
     }
 }
 
@@ -24,9 +17,7 @@ pub(crate) struct SourceIterator {
     chars: IntoIter<char>,
     peek: Option<Option<char>>,
     peek_next: Option<Option<char>>,
-    pos: u32,
-    line: u32,
-    column: u32,
+    pos: usize,
 }
 
 impl Iterator for SourceIterator {
@@ -47,21 +38,10 @@ impl Iterator for SourceIterator {
         match next_value {
             Some(e) => {
                 let position = self.pos;
-                let line = self.line;
-                let column = self.column;
 
-                match e {
-                    '\n' => {
-                        self.pos += 1;
-                        self.column = 0;
-                        self.line += 1;
-                    }
-                    _ => {
-                        self.pos += 1;
-                        self.column += 1;
-                    }
-                };
-                Some(Entry::new(e, position, column, line))
+                self.pos += e.len_utf8();
+
+                Some(Entry::new(e, position))
             }
             None => None,
         }
@@ -78,8 +58,6 @@ impl SourceIterator {
             peek: None,
             peek_next: None,
             pos: 0,
-            column: 0,
-            line: 0,
         }
     }
 
@@ -115,9 +93,9 @@ impl SourceIterator {
         }
     }
 
-    pub(crate) fn substring(&self, from: u32, to: u32) -> String {
+    pub(crate) fn substring(&self, from: usize, to: usize) -> String {
         let text: &str = &self.source;
-        text[from as usize..=to as usize].to_string()
+        text[from..=to].to_string()
     }
 }
 
@@ -131,13 +109,13 @@ mod tests {
     fn test_next_should_return_available_elements() {
         let mut iterator = SourceIterator::new("Foo b\na".to_string());
 
-        assert_eq!(iterator.next(), Some(Entry::new('F', 0, 0, 0)));
-        assert_eq!(iterator.next(), Some(Entry::new('o', 1, 1, 0)));
-        assert_eq!(iterator.next(), Some(Entry::new('o', 2, 2, 0)));
-        assert_eq!(iterator.next(), Some(Entry::new(' ', 3, 3, 0)));
-        assert_eq!(iterator.next(), Some(Entry::new('b', 4, 4, 0)));
-        assert_eq!(iterator.next(), Some(Entry::new('\n', 5, 5, 0)));
-        assert_eq!(iterator.next(), Some(Entry::new('a', 6, 0, 1)));
+        assert_eq!(iterator.next(), Some(Entry::new('F', 0)));
+        assert_eq!(iterator.next(), Some(Entry::new('o', 1)));
+        assert_eq!(iterator.next(), Some(Entry::new('o', 2)));
+        assert_eq!(iterator.next(), Some(Entry::new(' ', 3)));
+        assert_eq!(iterator.next(), Some(Entry::new('b', 4)));
+        assert_eq!(iterator.next(), Some(Entry::new('\n', 5)));
+        assert_eq!(iterator.next(), Some(Entry::new('a', 6)));
         assert_eq!(iterator.next(), None);
     }
 
@@ -146,7 +124,7 @@ mod tests {
         let mut iterator = SourceIterator::new("Fo".to_string());
 
         assert_eq!(iterator.peek(), Some('F'));
-        assert_eq!(iterator.next(), Some(Entry::new('F', 0, 0, 0)));
+        assert_eq!(iterator.next(), Some(Entry::new('F', 0)));
         assert_eq!(iterator.peek(), Some('o'));
         iterator.next();
         assert_eq!(iterator.peek, None);
@@ -158,7 +136,7 @@ mod tests {
 
         assert_eq!(iterator.peek(), Some('F'));
         assert_eq!(iterator.peek(), Some('F'));
-        assert_eq!(iterator.next(), Some(Entry::new('F', 0, 0, 0)));
+        assert_eq!(iterator.next(), Some(Entry::new('F', 0)));
     }
 
     #[test]
@@ -166,7 +144,7 @@ mod tests {
         let mut iterator = SourceIterator::new("Bar".to_string());
 
         assert_eq!(iterator.peek_next(), Some('a'));
-        assert_eq!(iterator.next(), Some(Entry::new('B', 0, 0, 0)));
+        assert_eq!(iterator.next(), Some(Entry::new('B', 0)));
         assert_eq!(iterator.peek_next(), Some('r'));
         iterator.next();
         assert_eq!(iterator.peek_next, None);
@@ -178,7 +156,7 @@ mod tests {
 
         assert_eq!(iterator.peek_next(), Some('a'));
         assert_eq!(iterator.peek_next(), Some('a'));
-        assert_eq!(iterator.next(), Some(Entry::new('B', 0, 0, 0)));
+        assert_eq!(iterator.next(), Some(Entry::new('B', 0)));
     }
 
     #[test]
@@ -187,7 +165,7 @@ mod tests {
 
         assert_eq!(iterator.peek(), Some('B'));
         assert_eq!(iterator.peek_next(), Some('a'));
-        assert_eq!(iterator.next(), Some(Entry::new('B', 0, 0, 0)));
+        assert_eq!(iterator.next(), Some(Entry::new('B', 0)));
         assert_eq!(iterator.peek(), Some('a'));
         assert_eq!(iterator.peek_next(), Some('r'));
     }
@@ -202,7 +180,7 @@ mod tests {
     fn test_next_match_advances_the_iterator_on_match() {
         let mut iterator = SourceIterator::new("BarBaz".to_string());
         iterator.next_match('B');
-        assert_eq!(iterator.next(), Some(Entry::new('a', 1, 1, 0)));
+        assert_eq!(iterator.next(), Some(Entry::new('a', 1)));
     }
 
     #[test]
@@ -215,14 +193,14 @@ mod tests {
     fn test_next_match_does_not_advance_on_no_match() {
         let mut iterator = SourceIterator::new("BarBaz".to_string());
         iterator.next_match('a');
-        assert_eq!(iterator.next(), Some(Entry::new('B', 0, 0, 0)));
+        assert_eq!(iterator.next(), Some(Entry::new('B', 0)));
     }
 
     #[test]
     fn test_scan_until_finds_first_match() {
         let mut iterator = SourceIterator::new("BarBaz".to_string());
-        assert_eq!(iterator.scan_until('a'), Some(Entry::new('a', 1, 1, 0)));
-        assert_eq!(iterator.scan_until('a'), Some(Entry::new('a', 4, 4, 0)));
+        assert_eq!(iterator.scan_until('a'), Some(Entry::new('a', 1)));
+        assert_eq!(iterator.scan_until('a'), Some(Entry::new('a', 4)));
     }
 
     #[test]
