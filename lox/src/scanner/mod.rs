@@ -19,48 +19,45 @@ impl Scanner {
         let mut tokens: Vec<Token> = Vec::new();
         let mut source_iter = SourceIterator::new(self.code.clone());
 
-        loop {
-            match source_iter.next() {
-                Some(e) => match e.value {
-                    '(' => tokens.push(Token::new(LeftParent, e, 1)),
-                    ')' => tokens.push(Token::new(RightParent, e, 1)),
-                    '{' => tokens.push(Token::new(LeftBrace, e, 1)),
-                    '}' => tokens.push(Token::new(RightBrace, e, 1)),
-                    ',' => tokens.push(Token::new(Comma, e, 1)),
-                    '.' => tokens.push(Token::new(Dot, e, 1)),
-                    '-' => tokens.push(Token::new(Minus, e, 1)),
-                    '+' => tokens.push(Token::new(Plus, e, 1)),
-                    ';' => tokens.push(Token::new(Semicolon, e, 1)),
-                    '*' => tokens.push(Token::new(Star, e, 1)),
-                    '!' => scan_with_equal(&mut tokens, &mut source_iter, BangEqual, Bang, e),
-                    '=' => scan_with_equal(&mut tokens, &mut source_iter, EqualEqual, Equal, e),
-                    '<' => scan_with_equal(&mut tokens, &mut source_iter, LessEqual, Less, e),
-                    '>' => scan_with_equal(&mut tokens, &mut source_iter, GreaterEqual, Greater, e),
-                    '/' => {
-                        if source_iter.next_match('/') {
-                            source_iter.scan_until('\n');
-                        } else {
-                            tokens.push(Token::new(Slash, e, 1))
-                        }
+        while let Some(e) = source_iter.next() {
+            match e.value {
+                '(' => tokens.push(Token::new(LeftParent, e, 1)),
+                ')' => tokens.push(Token::new(RightParent, e, 1)),
+                '{' => tokens.push(Token::new(LeftBrace, e, 1)),
+                '}' => tokens.push(Token::new(RightBrace, e, 1)),
+                ',' => tokens.push(Token::new(Comma, e, 1)),
+                '.' => tokens.push(Token::new(Dot, e, 1)),
+                '-' => tokens.push(Token::new(Minus, e, 1)),
+                '+' => tokens.push(Token::new(Plus, e, 1)),
+                ';' => tokens.push(Token::new(Semicolon, e, 1)),
+                '*' => tokens.push(Token::new(Star, e, 1)),
+                '!' => scan_with_equal(&mut tokens, &mut source_iter, BangEqual, Bang, e),
+                '=' => scan_with_equal(&mut tokens, &mut source_iter, EqualEqual, Equal, e),
+                '<' => scan_with_equal(&mut tokens, &mut source_iter, LessEqual, Less, e),
+                '>' => scan_with_equal(&mut tokens, &mut source_iter, GreaterEqual, Greater, e),
+                '/' => {
+                    if source_iter.next_match('/') {
+                        source_iter.scan_until('\n');
+                    } else {
+                        tokens.push(Token::new(Slash, e, 1))
                     }
-                    ' ' | '\r' | '\t' | '\n' => (),
-                    '"' => match scan_string(&mut source_iter, e) {
-                        Ok(token) => tokens.push(token),
-                        Err(e) => {
-                            println!("Error!: {}", e);
-                            break;
-                        }
-                    },
-                    value if value.is_numeric() => tokens.push(scan_number(&mut source_iter, e)),
-                    value if value.is_alphanumeric() => {
-                        tokens.push(scan_identifier(&mut source_iter, e))
-                    }
-                    value => {
-                        println!("Error!: Unrecognized Character '{}'", value);
+                }
+                ' ' | '\r' | '\t' | '\n' => (),
+                '"' => match scan_string(&mut source_iter, e) {
+                    Ok(token) => tokens.push(token),
+                    Err(e) => {
+                        println!("Error!: {e}");
                         break;
                     }
                 },
-                None => break,
+                value if value.is_numeric() => tokens.push(scan_number(&mut source_iter, e)),
+                value if value.is_alphanumeric() => {
+                    tokens.push(scan_identifier(&mut source_iter, e))
+                }
+                value => {
+                    println!("Error!: Unrecognized Character '{value}'");
+                    break;
+                }
             }
         }
 
@@ -104,7 +101,7 @@ impl Scanner {
         fn scan_number(source_iter: &mut SourceIterator, first_entry: Entry) -> Token {
             let mut found_dot = false;
 
-            let mut last_entry = first_entry.clone();
+            let mut last_entry = first_entry;
             loop {
                 match (source_iter.peek(), source_iter.peek_next()) {
                     (Some(c), _) if c.is_numeric() => {
@@ -179,6 +176,6 @@ mod tests {
     fn foo() {
         let scanner = Scanner::new("2.hallowelt".to_string());
         let tokens = scanner.scan();
-        println!("{:?}", tokens)
+        println!("{tokens:?}")
     }
 }

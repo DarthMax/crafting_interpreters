@@ -1,5 +1,4 @@
 use crate::expression::ExpressionNode;
-use crate::token::Token;
 
 pub enum Statement {
     Print(ExpressionNode),

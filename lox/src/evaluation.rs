@@ -23,9 +23,9 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Nil => f.write_str("Nil"),
-            Boolean(b) => write!(f, "{}", b),
-            Number(n) => write!(f, "{}", n),
-            Str(str) => write!(f, "{}", str),
+            Boolean(b) => write!(f, "{b}"),
+            Number(n) => write!(f, "{n}"),
+            Str(str) => write!(f, "{str}"),
         }
     }
 }
@@ -34,9 +34,9 @@ impl Debug for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Nil => f.write_str("Nil"),
-            Boolean(b) => write!(f, "{}:Boolean", b),
-            Number(n) => write!(f, "{}:Number", n),
-            Str(str) => write!(f, "{}:String", str),
+            Boolean(b) => write!(f, "{b}:Boolean"),
+            Number(n) => write!(f, "{n}:Number"),
+            Str(str) => write!(f, "{str}:String"),
         }
     }
 }
@@ -214,7 +214,7 @@ fn evaluate_expression(expr: &ExpressionNode) -> EvaluationResult<ValueNode> {
             let value_node: ValueNode = ValueNode::from_literal(lit, &expr.position);
             Ok(value_node)
         }
-        Expression::Grouping(inner) => evaluate_expression(&inner),
+        Expression::Grouping(inner) => evaluate_expression(inner),
         Expression::Unary { inner, op, .. } => {
             let inner_value = evaluate_expression(inner)?;
             let value = match op {

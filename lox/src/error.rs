@@ -1,4 +1,4 @@
-use miette::{Diagnostic, SourceSpan};
+use miette::Diagnostic;
 use thiserror::Error;
 
 use crate::evaluation::ValueNode;
@@ -45,7 +45,7 @@ impl ParseError {
     pub fn illegal_token(found: Token) -> LoxError {
         LoxError::ParseError(ParseError::IllegalToken {
             found: found.token_type.to_string(),
-            position: found.position.clone(),
+            position: found.position,
         })
     }
 
@@ -53,7 +53,7 @@ impl ParseError {
         LoxError::ParseError(ParseError::UnexpectedToken {
             found: found.token_type.to_string(),
             expected: expected.to_string(),
-            position: found.position.clone(),
+            position: found.position,
         })
     }
 

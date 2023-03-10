@@ -16,8 +16,8 @@ impl Position {
     }
 }
 
-impl Into<SourceSpan> for Position {
-    fn into(self) -> SourceSpan {
-        (self.absolute, self.length).into()
+impl From<Position> for SourceSpan {
+    fn from(val: Position) -> Self {
+        (val.absolute, val.length).into()
     }
 }

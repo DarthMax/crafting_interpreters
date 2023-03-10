@@ -32,7 +32,7 @@ fn main() {
 
     match result {
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{e}");
             std::process::exit(1)
         }
         _ => std::process::exit(0),
@@ -46,11 +46,11 @@ fn run_file(file: OsString) -> io::Result<()> {
 }
 
 fn run_repl() -> io::Result<()> {
-    let mut line_number = 0 as u32;
+    let mut line_number = 0_u32;
     let mut input = String::new();
 
     loop {
-        print!("lox ({})> ", line_number);
+        print!("lox ({line_number})> ");
         io::stdout().flush()?;
 
         input.clear();
@@ -74,7 +74,7 @@ fn parse(source: String) {
     let tokens = scanner.scan();
     match parser::parse(&tokens) {
         Ok(expression) => match evaluate(&expression) {
-            Ok(value) => println!("{:?}", value),
+            Ok(value) => println!("{value:?}"),
             Err(error) => println!("{:?}", miette::Report::new(error).with_source_code(source)),
         },
         Err(error) => println!("{:?}", miette::Report::new(error).with_source_code(source)),

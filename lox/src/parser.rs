@@ -13,8 +13,8 @@ use crate::token::{Token, TokenType};
 pub type TokenIter<'a> = Peekable<Iter<'a, Token>>;
 pub type ParseResult<T> = Result<T, LoxError>;
 
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<Vec<Statement>> {
-    let mut token_iter: TokenIter = tokens.into_iter().peekable();
+pub fn parse(tokens: &[Token]) -> ParseResult<Vec<Statement>> {
+    let mut token_iter: TokenIter = tokens.iter().peekable();
     let mut statements = Vec::new();
 
     while token_iter.peek().is_some() {
@@ -28,7 +28,7 @@ fn statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
     match tokens.peek() {
         Some(Token {
             token_type,
-            position,
+            position: _,
         }) => match token_type {
             Print => {
                 let _ = tokens.next();
@@ -42,14 +42,12 @@ fn statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
 
 fn print_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
     let expression = expression(tokens)?;
-    print!("{}", expression.position.absolute);
     let _ = consume_semicolon(tokens, Semicolon, &expression.position)?;
     Ok(Statement::Print(expression))
 }
 
 fn expression_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
     let expression = expression(tokens)?;
-    print!("{}", expression.pretty());
     let _ = consume_semicolon(tokens, Semicolon, &expression.position)?;
     Ok(Statement::Expression(expression))
 }

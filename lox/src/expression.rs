@@ -55,7 +55,7 @@ impl ExpressionNode {
                         op,
                         expr.position.absolute,
                         expr.position.length,
-                        pretty(&inner, level + 1)
+                        pretty(inner, level + 1)
                     )
                 }
                 Binary {
@@ -66,8 +66,8 @@ impl ExpressionNode {
                         op,
                         expr.position.absolute,
                         expr.position.length,
-                        pretty(&left, level + 1),
-                        pretty(&right, level + 1)
+                        pretty(left, level + 1),
+                        pretty(right, level + 1)
                     )
                 }
                 Literal(value) => format!(
@@ -79,7 +79,7 @@ impl ExpressionNode {
                         "Group  ({}:{})\n{}",
                         expr.position.absolute,
                         expr.position.length,
-                        pretty(&inner, level + 1)
+                        pretty(inner, level + 1)
                     )
                 }
             };
@@ -104,8 +104,8 @@ pub enum LiteralType {
 impl fmt::Display for LiteralType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            NumberLit(value) => write!(f, "{}", value),
-            StringLit(value) => write!(f, "\"{}\"", value),
+            NumberLit(value) => write!(f, "{value}"),
+            StringLit(value) => write!(f, "\"{value}\""),
             TrueLit => write!(f, "true"),
             FalseLit => write!(f, "false"),
             NilLit => write!(f, "nil"),
@@ -184,7 +184,7 @@ impl TryFrom<&TokenType> for UnaryOp {
         match value {
             Bang => Ok(Not),
             Minus => Ok(Negative),
-            other => Err(format!("Cannot convert {:?} into UnaryOp", other).to_string()),
+            other => Err(format!("Cannot convert {other:?} into UnaryOp")),
         }
     }
 }
