@@ -5,15 +5,16 @@ use std::io::Write;
 use std::{env, fs, io};
 
 use crate::evaluation::evaluate;
-use crate::position::Position;
 use crate::scanner::Scanner;
 
 mod error;
 mod evaluation;
 mod expression;
 mod parser;
-mod scanner;
 mod position;
+mod scanner;
+mod statement;
+mod token;
 
 fn main() {
     let mut args = env::args_os().skip(1);
@@ -73,10 +74,9 @@ fn parse(source: String) {
     let tokens = scanner.scan();
     match parser::parse(&tokens) {
         Ok(expression) => match evaluate(&expression) {
-            Ok(value) => println!("{}", value),
+            Ok(value) => println!("{:?}", value),
             Err(error) => println!("{:?}", miette::Report::new(error).with_source_code(source)),
         },
         Err(error) => println!("{:?}", miette::Report::new(error).with_source_code(source)),
     };
 }
-

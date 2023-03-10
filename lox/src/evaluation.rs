@@ -7,6 +7,7 @@ use crate::evaluation::Value::{Boolean, Nil, Number, Str};
 use crate::expression::LiteralType::*;
 use crate::expression::{BinaryOp, Expression, ExpressionNode, LiteralType, UnaryOp};
 use crate::position::Position;
+use crate::statement::Statement;
 
 pub type EvaluationResult<T> = Result<T, LoxError>;
 
@@ -186,15 +187,36 @@ impl ValueNode {
     }
 }
 
-pub fn evaluate(expr: &ExpressionNode) -> EvaluationResult<ValueNode> {
+pub(crate) fn evaluate(statements: &Vec<Statement>) -> EvaluationResult<Value> {
+    let mut result: EvaluationResult<Value> = Ok(Nil);
+
+    for stmt in statements {
+        result = Ok(evaluate_statement(stmt)?.value)
+    }
+
+    result
+}
+
+fn evaluate_statement(stmt: &Statement) -> EvaluationResult<ValueNode> {
+    match stmt {
+        Statement::Print(expr) => {
+            let inner_value = evaluate_expression(expr)?;
+            println!("{}", inner_value.value);
+            Ok(inner_value)
+        }
+        Statement::Expression(expr) => Ok(evaluate_expression(expr)?),
+    }
+}
+
+fn evaluate_expression(expr: &ExpressionNode) -> EvaluationResult<ValueNode> {
     match &expr.expression {
         Expression::Literal(lit) => {
             let value_node: ValueNode = ValueNode::from_literal(lit, &expr.position);
             Ok(value_node)
         }
-        Expression::Grouping(inner) => evaluate(&inner),
+        Expression::Grouping(inner) => evaluate_expression(&inner),
         Expression::Unary { inner, op, .. } => {
-            let inner_value = evaluate(inner)?;
+            let inner_value = evaluate_expression(inner)?;
             let value = match op {
                 UnaryOp::Negative => inner_value.negative(),
                 UnaryOp::Not => inner_value.not(),
@@ -204,8 +226,8 @@ pub fn evaluate(expr: &ExpressionNode) -> EvaluationResult<ValueNode> {
         Expression::Binary {
             left, right, op, ..
         } => {
-            let left_value = evaluate(left)?;
-            let right_value = evaluate(right)?;
+            let left_value = evaluate_expression(left)?;
+            let right_value = evaluate_expression(right)?;
 
             let value = match op {
                 BinaryOp::Equals => left_value.equals(&right_value),
