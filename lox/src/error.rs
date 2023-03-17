@@ -49,10 +49,10 @@ impl ParseError {
         })
     }
 
-    pub fn unexpected_token(found: Token, expected: TokenType) -> LoxError {
+    pub fn unexpected_token(found: Token, expected: String) -> LoxError {
         LoxError::ParseError(ParseError::UnexpectedToken {
             found: found.token_type.to_string(),
-            expected: expected.to_string(),
+            expected,
             position: found.position,
         })
     }
@@ -91,6 +91,18 @@ pub enum RuntimeError {
         #[label("no implicit conversion of type {found:} into {expected:}")]
         position: Position,
     },
+    #[error("UninitializedVariable")]
+    UninitializedVariable {
+        variable: String,
+        #[label("Variable {variable:} has not been initialized")]
+        position: Position,
+    },
+    #[error("UnknownIdentifier")]
+    UnknownIdentifier {
+        variable: String,
+        #[label("Unknown variable {variable:}")]
+        position: Position,
+    },
 }
 
 impl RuntimeError {
@@ -100,5 +112,13 @@ impl RuntimeError {
             expected,
             position: found.position.clone(),
         })
+    }
+
+    pub(crate) fn uninitialized_variable(variable: String, position: Position) -> LoxError {
+        LoxError::RuntimeError(RuntimeError::UninitializedVariable { variable, position })
+    }
+
+    pub(crate) fn unknown_identifier(variable: String, position: Position) -> LoxError {
+        LoxError::RuntimeError(RuntimeError::UnknownIdentifier { variable, position })
     }
 }

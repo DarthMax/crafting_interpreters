@@ -1,8 +1,11 @@
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 
-use crate::error::{LoxError, RuntimeError};
+use crate::environment::Environment;
+use crate::error::LoxError;
+use crate::error::RuntimeError;
 use crate::evaluation::Value::{Boolean, Nil, Number, Str};
 use crate::expression::LiteralType::*;
 use crate::expression::{BinaryOp, Expression, ExpressionNode, LiteralType, UnaryOp};
@@ -187,36 +190,51 @@ impl ValueNode {
     }
 }
 
-pub(crate) fn evaluate(statements: &Vec<Statement>) -> EvaluationResult<Value> {
+pub(crate) fn evaluate(
+    statements: &Vec<Statement>,
+    env: &RefCell<Environment>,
+) -> EvaluationResult<Value> {
     let mut result: EvaluationResult<Value> = Ok(Nil);
 
     for stmt in statements {
-        result = Ok(evaluate_statement(stmt)?.value)
+        result = Ok(evaluate_statement(stmt, env)?)
     }
 
     result
 }
 
-fn evaluate_statement(stmt: &Statement) -> EvaluationResult<ValueNode> {
+fn evaluate_statement(stmt: &Statement, env: &RefCell<Environment>) -> EvaluationResult<Value> {
     match stmt {
         Statement::Print(expr) => {
-            let inner_value = evaluate_expression(expr)?;
-            println!("{}", inner_value.value);
-            Ok(inner_value)
+            let inner_value = evaluate_expression(expr, env)?;
+            Ok(inner_value.value)
         }
-        Statement::Expression(expr) => Ok(evaluate_expression(expr)?),
+        Statement::Expression(expr) => Ok(evaluate_expression(expr, env)?.value),
+        Statement::Var { name, initializer } => {
+            let initializer = match initializer {
+                Some(expr) => Some(evaluate_expression(expr, env)?),
+                _ => None,
+            };
+
+            env.borrow_mut().register(name.to_string(), initializer);
+
+            Ok(Value::Nil)
+        }
     }
 }
 
-fn evaluate_expression(expr: &ExpressionNode) -> EvaluationResult<ValueNode> {
+fn evaluate_expression(
+    expr: &ExpressionNode,
+    env: &RefCell<Environment>,
+) -> EvaluationResult<ValueNode> {
     match &expr.expression {
         Expression::Literal(lit) => {
             let value_node: ValueNode = ValueNode::from_literal(lit, &expr.position);
             Ok(value_node)
         }
-        Expression::Grouping(inner) => evaluate_expression(inner),
+        Expression::Grouping(inner) => evaluate_expression(inner, env),
         Expression::Unary { inner, op, .. } => {
-            let inner_value = evaluate_expression(inner)?;
+            let inner_value = evaluate_expression(inner, env)?;
             let value = match op {
                 UnaryOp::Negative => inner_value.negative(),
                 UnaryOp::Not => inner_value.not(),
@@ -226,8 +244,8 @@ fn evaluate_expression(expr: &ExpressionNode) -> EvaluationResult<ValueNode> {
         Expression::Binary {
             left, right, op, ..
         } => {
-            let left_value = evaluate_expression(left)?;
-            let right_value = evaluate_expression(right)?;
+            let left_value = evaluate_expression(left, env)?;
+            let right_value = evaluate_expression(right, env)?;
 
             let value = match op {
                 BinaryOp::Equals => left_value.equals(&right_value),
@@ -243,5 +261,16 @@ fn evaluate_expression(expr: &ExpressionNode) -> EvaluationResult<ValueNode> {
             };
             Ok(ValueNode::new(value?, &expr.position))
         }
+        Expression::Variable(name) => match env.borrow().get(name) {
+            Some(Some(value)) => Ok(value.clone()),
+            Some(None) => Err(RuntimeError::uninitialized_variable(
+                name.to_string(),
+                expr.position.clone(),
+            )),
+            None => Err(RuntimeError::unknown_identifier(
+                name.to_string(),
+                expr.position.clone(),
+            )),
+        },
     }
 }

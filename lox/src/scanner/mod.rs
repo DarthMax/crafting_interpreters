@@ -90,7 +90,7 @@ impl Scanner {
             let entry = entry.unwrap();
 
             let value = source_iter.substring(first_entry.position + 1, entry.position - 1);
-            let token = StringToken { value };
+            let token = StringToken(value);
             Ok(Token::new(
                 token,
                 first_entry,
@@ -119,7 +119,7 @@ impl Scanner {
                 .substring(first_entry.position, last_entry.position)
                 .parse::<f64>()
                 .unwrap();
-            let token_type = Number { value };
+            let token_type = Number(value);
             Token::new(
                 token_type,
                 first_entry,
@@ -156,7 +156,7 @@ impl Scanner {
                 "true" => True,
                 "var" => Var,
                 "while" => While,
-                _ => Identifier { value },
+                _ => Identifier(value),
             };
 
             Token::new(

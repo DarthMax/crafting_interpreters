@@ -35,6 +35,7 @@ pub enum Expression {
     },
     Literal(LiteralType),
     Grouping(Box<ExpressionNode>),
+    Variable(String),
 }
 
 impl ExpressionNode {
@@ -80,6 +81,12 @@ impl ExpressionNode {
                         expr.position.absolute,
                         expr.position.length,
                         pretty(inner, level + 1)
+                    )
+                }
+                Variable(identifier) => {
+                    format!(
+                        "Variable: {} ({}:{})",
+                        identifier, expr.position.absolute, expr.position.length
                     )
                 }
             };

@@ -1,12 +1,15 @@
 extern crate core;
 
+use std::cell::RefCell;
 use std::ffi::OsString;
 use std::io::Write;
 use std::{env, fs, io};
 
+use crate::environment::Environment;
 use crate::evaluation::evaluate;
 use crate::scanner::Scanner;
 
+mod environment;
 mod error;
 mod evaluation;
 mod expression;
@@ -41,13 +44,16 @@ fn main() {
 
 fn run_file(file: OsString) -> io::Result<()> {
     let source = fs::read_to_string(file)?;
-    parse(source);
+    let env = RefCell::new(Environment::empty());
+
+    parse(source, &env);
     Ok(())
 }
 
 fn run_repl() -> io::Result<()> {
     let mut line_number = 0_u32;
     let mut input = String::new();
+    let env = RefCell::new(Environment::empty());
 
     loop {
         print!("lox ({line_number})> ");
@@ -61,7 +67,7 @@ fn run_repl() -> io::Result<()> {
             break;
         }
 
-        parse(input.clone());
+        parse(input.clone(), &env);
 
         line_number += 1;
     }
@@ -69,11 +75,11 @@ fn run_repl() -> io::Result<()> {
     Ok(())
 }
 
-fn parse(source: String) {
+fn parse(source: String, env: &RefCell<Environment>) {
     let scanner = Scanner::new(source.clone());
     let tokens = scanner.scan();
     match parser::parse(&tokens) {
-        Ok(expression) => match evaluate(&expression) {
+        Ok(expression) => match evaluate(&expression, env) {
             Ok(value) => println!("{value:?}"),
             Err(error) => println!("{:?}", miette::Report::new(error).with_source_code(source)),
         },

@@ -47,9 +47,9 @@ pub enum TokenType {
     LessEqual,
 
     // Literals.
-    Identifier { value: String },
-    StringToken { value: String },
-    Number { value: f64 },
+    Identifier(String),
+    StringToken(String),
+    Number(f64),
 
     // Keywords.
     And,
