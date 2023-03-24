@@ -230,6 +230,22 @@ fn evaluate_statement(stmt: &Statement, env: Rc<RefCell<Environment>>) -> Evalua
 
             Ok(Nil)
         }
+        Statement::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            let condition = evaluate_expression(condition, env.clone())?;
+
+            if condition.as_boolean()? {
+                evaluate_statement(then_branch, env.clone())
+            } else {
+                match else_branch {
+                    Some(else_branch) => evaluate_statement(else_branch, env.clone()),
+                    _ => Ok(Nil),
+                }
+            }
+        }
     }
 }
 

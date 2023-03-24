@@ -102,6 +102,10 @@ fn statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
             token_type,
             position: _,
         }) => match token_type {
+            If => {
+                let _ = tokens.next();
+                if_statement(tokens)
+            }
             Print => {
                 let _ = tokens.next();
                 print_statement(tokens)
@@ -114,6 +118,22 @@ fn statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
         },
         _ => todo!(),
     }
+}
+
+fn if_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
+    let condition = expression(tokens)?;
+
+    let then_branch = statement(tokens)?;
+    let else_branch = match tokens.next_if(|t| t.token_type == Else) {
+        Some(_) => Some(statement(tokens)?),
+        None => None,
+    };
+
+    Ok(Statement::If {
+        condition,
+        then_branch: Box::new(then_branch),
+        else_branch: else_branch.map(Box::new),
+    })
 }
 
 fn print_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {

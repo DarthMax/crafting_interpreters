@@ -8,4 +8,9 @@ pub enum Statement {
         initializer: Option<ExpressionNode>,
     },
     Block(Vec<Statement>),
+    If {
+        condition: ExpressionNode,
+        then_branch: Box<Statement>,
+        else_branch: Option<Box<Statement>>,
+    },
 }
