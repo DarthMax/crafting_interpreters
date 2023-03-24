@@ -36,6 +36,10 @@ pub enum Expression {
     Literal(LiteralType),
     Grouping(Box<ExpressionNode>),
     Variable(String),
+    Assignment {
+        name: String,
+        value: Box<ExpressionNode>,
+    },
 }
 
 impl ExpressionNode {
@@ -87,6 +91,15 @@ impl ExpressionNode {
                     format!(
                         "Variable: {} ({}:{})",
                         identifier, expr.position.absolute, expr.position.length
+                    )
+                }
+                Assignment { name, value } => {
+                    format!(
+                        "Assignment: {} ({}:{})\n{}",
+                        name,
+                        expr.position.absolute,
+                        expr.position.length,
+                        pretty(value, level + 1),
                     )
                 }
             };

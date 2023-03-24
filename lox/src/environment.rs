@@ -1,23 +1,53 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
-use crate::evaluation::ValueNode;
+use crate::evaluation::Value;
 
 pub struct Environment {
-    pub variables: HashMap<String, Option<ValueNode>>,
+    parent: Option<Rc<RefCell<Environment>>>,
+    variables: HashMap<String, Option<Value>>,
 }
 
 impl Environment {
     pub(crate) fn empty() -> Environment {
         Environment {
+            parent: None,
             variables: HashMap::new(),
         }
     }
 
-    pub fn register(&mut self, key: String, value: Option<ValueNode>) {
+    pub(crate) fn wrap(parent: Rc<RefCell<Environment>>) -> Environment {
+        Environment {
+            parent: Some(parent),
+            variables: HashMap::new(),
+        }
+    }
+
+    pub fn register(&mut self, key: String, value: Option<Value>) {
         self.variables.insert(key, value);
     }
 
-    pub fn get(&self, key: &String) -> Option<&Option<ValueNode>> {
-        self.variables.get(key)
+    pub fn assign(&mut self, key: &String, value: Value) -> bool {
+        if self.variables.contains_key(key) {
+            self.variables.insert(key.clone(), Some(value));
+            true
+        } else {
+            match &self.parent {
+                Some(p) => p.borrow_mut().assign(key, value),
+                None => false,
+            }
+        }
+    }
+
+    pub fn get(&self, key: &String) -> Option<Option<Value>> {
+        if self.variables.contains_key(key) {
+            self.variables.get(key).cloned()
+        } else {
+            match &self.parent {
+                Some(p) => p.borrow().get(key),
+                None => None,
+            }
+        }
     }
 }

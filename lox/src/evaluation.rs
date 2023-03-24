@@ -192,40 +192,50 @@ impl ValueNode {
 
 pub(crate) fn evaluate(
     statements: &Vec<Statement>,
-    env: &RefCell<Environment>,
+    env: Rc<RefCell<Environment>>,
 ) -> EvaluationResult<Value> {
     let mut result: EvaluationResult<Value> = Ok(Nil);
 
     for stmt in statements {
-        result = Ok(evaluate_statement(stmt, env)?)
+        result = Ok(evaluate_statement(stmt, env.clone())?)
     }
 
     result
 }
 
-fn evaluate_statement(stmt: &Statement, env: &RefCell<Environment>) -> EvaluationResult<Value> {
+fn evaluate_statement(stmt: &Statement, env: Rc<RefCell<Environment>>) -> EvaluationResult<Value> {
     match stmt {
         Statement::Print(expr) => {
             let inner_value = evaluate_expression(expr, env)?;
+            println!("{inner_value}");
             Ok(inner_value.value)
         }
         Statement::Expression(expr) => Ok(evaluate_expression(expr, env)?.value),
         Statement::Var { name, initializer } => {
             let initializer = match initializer {
-                Some(expr) => Some(evaluate_expression(expr, env)?),
+                Some(expr) => Some(evaluate_expression(expr, env.clone())?.value),
                 _ => None,
             };
 
             env.borrow_mut().register(name.to_string(), initializer);
 
-            Ok(Value::Nil)
+            Ok(Nil)
+        }
+        Statement::Block(statements) => {
+            let block_env = Rc::new(RefCell::new(Environment::wrap(env)));
+
+            for stmt in statements {
+                evaluate_statement(stmt, block_env.clone())?;
+            }
+
+            Ok(Nil)
         }
     }
 }
 
 fn evaluate_expression(
     expr: &ExpressionNode,
-    env: &RefCell<Environment>,
+    env: Rc<RefCell<Environment>>,
 ) -> EvaluationResult<ValueNode> {
     match &expr.expression {
         Expression::Literal(lit) => {
@@ -244,7 +254,7 @@ fn evaluate_expression(
         Expression::Binary {
             left, right, op, ..
         } => {
-            let left_value = evaluate_expression(left, env)?;
+            let left_value = evaluate_expression(left, env.clone())?;
             let right_value = evaluate_expression(right, env)?;
 
             let value = match op {
@@ -262,7 +272,7 @@ fn evaluate_expression(
             Ok(ValueNode::new(value?, &expr.position))
         }
         Expression::Variable(name) => match env.borrow().get(name) {
-            Some(Some(value)) => Ok(value.clone()),
+            Some(Some(value)) => Ok(ValueNode::new(value, &expr.position)),
             Some(None) => Err(RuntimeError::uninitialized_variable(
                 name.to_string(),
                 expr.position.clone(),
@@ -272,5 +282,15 @@ fn evaluate_expression(
                 expr.position.clone(),
             )),
         },
+        Expression::Assignment { name, value } => {
+            let value = evaluate_expression(value, env.clone())?;
+            match env.borrow_mut().assign(name, value.value) {
+                true => Ok(ValueNode::new(Nil, &expr.position)),
+                false => Err(RuntimeError::unknown_identifier(
+                    name.to_string(),
+                    expr.position.clone(),
+                )),
+            }
+        }
     }
 }

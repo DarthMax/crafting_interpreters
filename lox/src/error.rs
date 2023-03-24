@@ -39,6 +39,11 @@ pub enum ParseError {
     },
     #[error("unexpected end of token stream")]
     UnexpectedEndOfTokenStream,
+    #[error("invalid assignment target")]
+    InvalidAssignmentTarget {
+        #[label("invalid assignment target")]
+        position: Position,
+    },
 }
 
 impl ParseError {
@@ -77,6 +82,12 @@ impl ParseError {
         LoxError::ParseError(ParseError::UnclosedDelimiter {
             start_position: start_position.clone(),
             end_position: end_position.clone(),
+        })
+    }
+
+    pub(crate) fn invalid_assignment_target(position: &Position) -> LoxError {
+        LoxError::ParseError(ParseError::InvalidAssignmentTarget {
+            position: position.clone(),
         })
     }
 }

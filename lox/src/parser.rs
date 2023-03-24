@@ -5,7 +5,7 @@ use std::slice::Iter;
 use crate::error::{LoxError, ParseError};
 use crate::expression::Expression::{Binary, Grouping, Literal, Unary, Variable};
 use crate::expression::LiteralType::{FalseLit, NilLit, NumberLit, StringLit, TrueLit};
-use crate::expression::{BinaryOp, ExpressionNode, UnaryOp};
+use crate::expression::{BinaryOp, Expression, ExpressionNode, UnaryOp};
 use crate::position::Position;
 use crate::statement::Statement;
 use crate::token::TokenType::*;
@@ -106,6 +106,10 @@ fn statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
                 let _ = tokens.next();
                 print_statement(tokens)
             }
+            LeftBrace => {
+                let position = tokens.next().unwrap().position.clone();
+                block(tokens, position)
+            }
             _ => expression_statement(tokens),
         },
         _ => todo!(),
@@ -118,6 +122,31 @@ fn print_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
     Ok(Statement::Print(expression))
 }
 
+fn block(tokens: &mut TokenIter, opening_brace_pos: Position) -> ParseResult<Statement> {
+    let mut statements = Vec::new();
+
+    loop {
+        match tokens.peek() {
+            Some(Token {
+                token_type: RightBrace,
+                position: _,
+            }) => {
+                break;
+            }
+            Some(_) => {}
+            None => {
+                return Err(ParseError::unexpected_end_of_stream());
+            }
+        }
+
+        statements.push(declaration(tokens)?);
+    }
+
+    let _ = consume_closing_delimiter(tokens, RightBrace, &opening_brace_pos)?;
+
+    Ok(Statement::Block(statements))
+}
+
 fn expression_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
     let expression = expression(tokens)?;
     let _ = consume_semicolon(tokens)?;
@@ -125,7 +154,32 @@ fn expression_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
 }
 
 fn expression(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
-    equality(tokens)
+    assignment(tokens)
+}
+
+fn assignment(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
+    let expression = equality(tokens)?;
+
+    match tokens.next_if(|n| n.token_type == Equal) {
+        Some(_) => {
+            let value = assignment(tokens)?;
+            match expression.expression {
+                Variable(name) => {
+                    let length = value.position.end_position() - expression.position.absolute;
+                    let assignment = Expression::Assignment {
+                        name,
+                        value: Box::new(value),
+                    };
+
+                    let position = Position::new(expression.position.absolute, length);
+
+                    Ok(ExpressionNode::new(assignment, &position))
+                }
+                _ => Err(ParseError::invalid_assignment_target(&expression.position)),
+            }
+        }
+        None => Ok(expression),
+    }
 }
 
 fn equality(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {

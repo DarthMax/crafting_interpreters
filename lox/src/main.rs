@@ -3,6 +3,7 @@ extern crate core;
 use std::cell::RefCell;
 use std::ffi::OsString;
 use std::io::Write;
+use std::rc::Rc;
 use std::{env, fs, io};
 
 use crate::environment::Environment;
@@ -44,16 +45,16 @@ fn main() {
 
 fn run_file(file: OsString) -> io::Result<()> {
     let source = fs::read_to_string(file)?;
-    let env = RefCell::new(Environment::empty());
+    let env = Rc::new(RefCell::new(Environment::empty()));
 
-    parse(source, &env);
+    parse(source, env);
     Ok(())
 }
 
 fn run_repl() -> io::Result<()> {
     let mut line_number = 0_u32;
     let mut input = String::new();
-    let env = RefCell::new(Environment::empty());
+    let env = Rc::new(RefCell::new(Environment::empty()));
 
     loop {
         print!("lox ({line_number})> ");
@@ -67,7 +68,7 @@ fn run_repl() -> io::Result<()> {
             break;
         }
 
-        parse(input.clone(), &env);
+        parse(input.clone(), env.clone());
 
         line_number += 1;
     }
@@ -75,7 +76,7 @@ fn run_repl() -> io::Result<()> {
     Ok(())
 }
 
-fn parse(source: String, env: &RefCell<Environment>) {
+fn parse(source: String, env: Rc<RefCell<Environment>>) {
     let scanner = Scanner::new(source.clone());
     let tokens = scanner.scan();
     match parser::parse(&tokens) {
