@@ -8,7 +8,7 @@ use crate::error::LoxError;
 use crate::error::RuntimeError;
 use crate::evaluation::Value::{Boolean, Nil, Number, Str};
 use crate::expression::LiteralType::*;
-use crate::expression::{BinaryOp, Expression, ExpressionNode, LiteralType, UnaryOp};
+use crate::expression::{BinaryOp, Expression, ExpressionNode, LiteralType, LogicalOp, UnaryOp};
 use crate::position::Position;
 use crate::statement::Statement;
 
@@ -286,6 +286,25 @@ fn evaluate_expression(
                 BinaryOp::Divide => left_value.divide(&right_value),
             };
             Ok(ValueNode::new(value?, &expr.position))
+        }
+        Expression::Logical { left, right, op } => {
+            let left_value = evaluate_expression(left, env.clone())?;
+
+            match op {
+                LogicalOp::And => {
+                    if !left_value.as_boolean()? {
+                        return Ok(ValueNode::new(Boolean(false), &expr.position));
+                    }
+                }
+                LogicalOp::Or => {
+                    if left_value.as_boolean()? {
+                        return Ok(ValueNode::new(Boolean(true), &expr.position));
+                    }
+                }
+            }
+
+            let right_value = evaluate_expression(right, env)?;
+            Ok(ValueNode::new(right_value.value, &expr.position))
         }
         Expression::Variable(name) => match env.borrow().get(name) {
             Some(Some(value)) => Ok(ValueNode::new(value, &expr.position)),

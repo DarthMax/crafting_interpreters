@@ -1,11 +1,12 @@
 use std::borrow::Borrow;
+use std::fmt::Debug;
 use std::iter::Peekable;
 use std::slice::Iter;
 
 use crate::error::{LoxError, ParseError};
-use crate::expression::Expression::{Binary, Grouping, Literal, Unary, Variable};
+use crate::expression::Expression::{Binary, Grouping, Literal, Logical, Unary, Variable};
 use crate::expression::LiteralType::{FalseLit, NilLit, NumberLit, StringLit, TrueLit};
-use crate::expression::{BinaryOp, Expression, ExpressionNode, UnaryOp};
+use crate::expression::{BinaryOp, Expression, ExpressionNode, LogicalOp, UnaryOp};
 use crate::position::Position;
 use crate::statement::Statement;
 use crate::token::TokenType::*;
@@ -178,7 +179,7 @@ fn expression(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
 }
 
 fn assignment(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
-    let expression = equality(tokens)?;
+    let expression = or(tokens)?;
 
     match tokens.next_if(|n| n.token_type == Equal) {
         Some(_) => {
@@ -200,6 +201,14 @@ fn assignment(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
         }
         None => Ok(expression),
     }
+}
+
+fn or(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
+    parse_logical_op(tokens, &[Or], and)
+}
+
+fn and(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
+    parse_logical_op(tokens, &[And], equality)
 }
 
 fn equality(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
@@ -271,11 +280,41 @@ fn primary(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
     }
 }
 
+fn parse_logical_op(
+    tokens: &mut TokenIter,
+    accepted_token_types: &[TokenType],
+    inner_parser: fn(&mut TokenIter) -> ParseResult<ExpressionNode>,
+) -> ParseResult<ExpressionNode> {
+    parse_bi_op(
+        tokens,
+        accepted_token_types,
+        inner_parser,
+        |left, right, op: LogicalOp| Logical { left, right, op },
+    )
+}
+
 fn parse_binary_op(
     tokens: &mut TokenIter,
     accepted_token_types: &[TokenType],
     inner_parser: fn(&mut TokenIter) -> ParseResult<ExpressionNode>,
 ) -> ParseResult<ExpressionNode> {
+    parse_bi_op(
+        tokens,
+        accepted_token_types,
+        inner_parser,
+        |left, right, op: BinaryOp| Binary { left, right, op },
+    )
+}
+
+fn parse_bi_op<OpType>(
+    tokens: &mut TokenIter,
+    accepted_token_types: &[TokenType],
+    inner_parser: fn(&mut TokenIter) -> ParseResult<ExpressionNode>,
+    expression_creator: fn(Box<ExpressionNode>, Box<ExpressionNode>, OpType) -> Expression,
+) -> ParseResult<ExpressionNode>
+where
+    for<'a> OpType: TryFrom<&'a TokenType>,
+{
     let mut expression_node = inner_parser(tokens)?;
 
     loop {
@@ -284,7 +323,12 @@ fn parse_binary_op(
 
         match maybe_op_token {
             Some(op_token) => {
-                let op: BinaryOp = op_token.token_type.borrow().try_into().unwrap();
+                let op: OpType = match op_token.token_type.borrow().try_into() {
+                    Ok(op) => op,
+                    Err(_) => {
+                        return Err(ParseError::illegal_token(op_token.clone()));
+                    }
+                };
 
                 let left = Box::new(expression_node);
                 let right = Box::new(inner_parser(tokens)?);
@@ -292,7 +336,7 @@ fn parse_binary_op(
                 let start_pos = left.position.absolute;
                 let length = right.position.absolute + right.position.length - start_pos;
 
-                let expression = Binary { left, right, op };
+                let expression = expression_creator(left, right, op);
 
                 expression_node = ExpressionNode::new(
                     expression,

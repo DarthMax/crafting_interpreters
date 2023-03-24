@@ -33,6 +33,11 @@ pub enum Expression {
         right: Box<ExpressionNode>,
         op: BinaryOp,
     },
+    Logical {
+        left: Box<ExpressionNode>,
+        right: Box<ExpressionNode>,
+        op: LogicalOp,
+    },
     Literal(LiteralType),
     Grouping(Box<ExpressionNode>),
     Variable(String),
@@ -68,6 +73,18 @@ impl ExpressionNode {
                 } => {
                     format!(
                         "Binary {} ({}:{})\n{}\n{}",
+                        op,
+                        expr.position.absolute,
+                        expr.position.length,
+                        pretty(left, level + 1),
+                        pretty(right, level + 1)
+                    )
+                }
+                Logical {
+                    left, right, op, ..
+                } => {
+                    format!(
+                        "Logical {} ({}:{})\n{}\n{}",
                         op,
                         expr.position.absolute,
                         expr.position.length,
@@ -178,6 +195,32 @@ impl TryFrom<&TokenType> for BinaryOp {
             Plus => Ok(Add),
             Slash => Ok(Divide),
             Star => Ok(Multiply),
+            _ => Err("Could not do this"),
+        }
+    }
+}
+
+pub enum LogicalOp {
+    And,
+    Or,
+}
+
+impl fmt::Display for LogicalOp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            LogicalOp::And => write!(f, "and"),
+            LogicalOp::Or => write!(f, "or"),
+        }
+    }
+}
+
+impl TryFrom<&TokenType> for LogicalOp {
+    type Error = &'static str;
+
+    fn try_from(token_type: &TokenType) -> Result<Self, Self::Error> {
+        match token_type {
+            And => Ok(LogicalOp::And),
+            Or => Ok(LogicalOp::Or),
             _ => Err("Could not do this"),
         }
     }
