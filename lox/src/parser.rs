@@ -111,6 +111,10 @@ fn statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
                 let _ = tokens.next();
                 while_statement(tokens)
             }
+            For => {
+                let _ = tokens.next();
+                for_statement(tokens)
+            }
             Print => {
                 let _ = tokens.next();
                 print_statement(tokens)
@@ -149,6 +153,67 @@ fn while_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
         condition,
         body: Box::new(body),
     })
+}
+
+fn for_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
+    let initializer = match tokens.peek() {
+        Some(Token {
+            token_type: Var,
+            position: _,
+        }) => {
+            let _ = tokens.next();
+            Some(var(tokens)?)
+        }
+        Some(Token {
+            token_type: Semicolon,
+            position: _,
+        }) => {
+            let _ = tokens.next();
+            None
+        }
+        Some(_) => Some(expression_statement(tokens)?),
+        None => {
+            return Err(ParseError::unexpected_end_of_stream());
+        }
+    };
+
+    fn parse(tokens: &mut TokenIter) -> ParseResult<Option<ExpressionNode>> {
+        match tokens.peek() {
+            Some(Token {
+                token_type: Semicolon,
+                position: _,
+            }) => {
+                let _ = tokens.next();
+                Ok(None)
+            }
+            Some(_) => {
+                let expr = Ok(Some(expression(tokens)?));
+                consume_semicolon(tokens)?;
+                expr
+            }
+            None => Err(ParseError::unexpected_end_of_stream()),
+        }
+    }
+
+    let condition = parse(tokens)?;
+    let increment = parse(tokens)?;
+
+    let mut body = statement(tokens)?;
+
+    if let Some(increment) = increment {
+        body = Statement::Block(vec![body, Statement::Expression(increment)]);
+    }
+
+    body = Statement::While {
+        condition: condition.unwrap_or(ExpressionNode::new(Literal(TrueLit), &Position::new(0, 1))),
+        body: Box::new(body),
+    };
+
+    if let Some(initializer) = initializer {
+        body = Statement::Block(vec![initializer, body]);
+    }
+
+    Ok(body)
 }
 
 fn print_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
