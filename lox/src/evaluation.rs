@@ -246,6 +246,13 @@ fn evaluate_statement(stmt: &Statement, env: Rc<RefCell<Environment>>) -> Evalua
                 }
             }
         }
+        Statement::While { condition, body } => {
+            while evaluate_expression(condition, env.clone())?.as_boolean()? {
+                evaluate_statement(body, env.clone())?;
+            }
+
+            Ok(Nil)
+        }
     }
 }
 

@@ -107,6 +107,10 @@ fn statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
                 let _ = tokens.next();
                 if_statement(tokens)
             }
+            While => {
+                let _ = tokens.next();
+                while_statement(tokens)
+            }
             Print => {
                 let _ = tokens.next();
                 print_statement(tokens)
@@ -134,6 +138,16 @@ fn if_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
         condition,
         then_branch: Box::new(then_branch),
         else_branch: else_branch.map(Box::new),
+    })
+}
+
+fn while_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
+    let condition = expression(tokens)?;
+    let body = statement(tokens)?;
+
+    Ok(Statement::While {
+        condition,
+        body: Box::new(body),
     })
 }
 
