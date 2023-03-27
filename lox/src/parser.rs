@@ -1,5 +1,4 @@
 use std::borrow::Borrow;
-use std::fmt::Debug;
 use std::iter::Peekable;
 use std::rc::Rc;
 use std::slice::Iter;
@@ -99,7 +98,7 @@ fn function(tokens: &mut TokenIter) -> ParseResult<Statement> {
 
     Ok(Statement::Function {
         name,
-        parameters: Box::new(parameters),
+        parameters,
         body: Rc::new(body),
     })
 }

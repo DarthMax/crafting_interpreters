@@ -21,7 +21,7 @@ pub enum Statement {
     },
     Function {
         name: String,
-        parameters: Box<Vec<String>>,
+        parameters: Vec<String>,
         body: Rc<Statement>,
     },
 }

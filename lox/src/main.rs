@@ -10,6 +10,7 @@ use crate::environment::Environment;
 use crate::evaluation::evaluate;
 use crate::scanner::Scanner;
 
+mod callable;
 mod environment;
 mod error;
 mod evaluation;
@@ -19,6 +20,7 @@ mod position;
 mod scanner;
 mod statement;
 mod token;
+mod value;
 
 fn main() {
     let mut args = env::args_os().skip(1);

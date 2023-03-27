@@ -1,9 +1,9 @@
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::evaluation::ValueNode;
 use crate::position::Position;
 use crate::token::{Token, TokenType};
+use crate::value::ValueNode;
 
 #[derive(Diagnostic, Error, Debug)]
 pub enum LoxError {

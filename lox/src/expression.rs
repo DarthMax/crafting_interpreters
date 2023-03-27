@@ -6,7 +6,6 @@ use crate::expression::Expression::*;
 use crate::expression::LiteralType::*;
 use crate::expression::UnaryOp::*;
 use crate::position::Position;
-use crate::statement::Statement;
 use crate::token::TokenType;
 use crate::token::TokenType::*;
 

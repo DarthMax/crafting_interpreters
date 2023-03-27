@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::evaluation::Value;
+use crate::value::Value;
 
 pub struct Environment {
     parent: Option<Rc<RefCell<Environment>>>,
