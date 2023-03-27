@@ -6,7 +6,7 @@ use std::rc::Rc;
 use crate::environment::Environment;
 use crate::error::LoxError;
 use crate::error::RuntimeError;
-use crate::evaluation::Value::{Boolean, Nil, Number, Str};
+use crate::evaluation::Value::{Boolean, Function, Nil, Number, Str};
 use crate::expression::LiteralType::*;
 use crate::expression::{BinaryOp, Expression, ExpressionNode, LiteralType, LogicalOp, UnaryOp};
 use crate::position::Position;
@@ -14,12 +14,57 @@ use crate::statement::Statement;
 
 pub type EvaluationResult<T> = Result<T, LoxError>;
 
+trait Callable {
+    fn call(&self, arguments: Vec<ValueNode>) -> EvaluationResult<Value>;
+
+    fn arity(&self) -> usize;
+}
+
+pub struct FunctionContainer {
+    pub(crate) id: String,
+    parameters: Vec<String>,
+    body: Rc<Statement>,
+}
+
+impl FunctionContainer {
+    fn new(name: &str, parameters: &Vec<String>, body: Rc<Statement>) -> FunctionContainer {
+        FunctionContainer {
+            id: name.to_string(),
+            parameters: parameters.clone(),
+            body: body,
+        }
+    }
+}
+
+impl PartialEq for FunctionContainer {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Callable for FunctionContainer {
+    fn call(&self, arguments: Vec<ValueNode>) -> EvaluationResult<Value> {
+        let mut env = Environment::empty();
+
+        for (key, value) in self.parameters.iter().zip(arguments) {
+            env.register(key.to_string(), Some(value.value))
+        }
+
+        evaluate_statement(&self.body, Rc::new(RefCell::new(env)))
+    }
+
+    fn arity(&self) -> usize {
+        self.parameters.len()
+    }
+}
+
 #[derive(PartialEq, Clone)]
 pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
     Str(Rc<str>),
+    Function(Rc<FunctionContainer>),
 }
 
 impl Display for Value {
@@ -29,6 +74,7 @@ impl Display for Value {
             Boolean(b) => write!(f, "{b}"),
             Number(n) => write!(f, "{n}"),
             Str(str) => write!(f, "{str}"),
+            Function(fun) => write!(f, "fun {}", fun.id),
         }
     }
 }
@@ -40,6 +86,7 @@ impl Debug for Value {
             Boolean(b) => write!(f, "{b}:Boolean"),
             Number(n) => write!(f, "{n}:Number"),
             Str(str) => write!(f, "{str}:String"),
+            Function(fun) => write!(f, "fun {}", fun.id),
         }
     }
 }
@@ -95,6 +142,13 @@ impl ValueNode {
         match &self.value {
             Str(str) => Ok(str.clone()),
             _ => Err(RuntimeError::type_error(self, "String".to_string())),
+        }
+    }
+
+    fn call(&self, arguments: Vec<ValueNode>) -> EvaluationResult<Value> {
+        match &self.value {
+            Function(container) => container.call(arguments),
+            _ => Err(RuntimeError::type_error(self, "Callable".to_string())),
         }
     }
 
@@ -253,6 +307,17 @@ fn evaluate_statement(stmt: &Statement, env: Rc<RefCell<Environment>>) -> Evalua
 
             Ok(Nil)
         }
+        Statement::Function {
+            name,
+            parameters,
+            body,
+        } => {
+            let container = FunctionContainer::new(name, parameters, body.clone());
+            env.borrow_mut()
+                .register(name.to_string(), Some(Function(Rc::new(container))));
+
+            Ok(Nil)
+        }
     }
 }
 
@@ -333,6 +398,18 @@ fn evaluate_expression(
                     expr.position.clone(),
                 )),
             }
+        }
+        Expression::Call { callee, arguments } => {
+            let callee_expr = evaluate_expression(callee, env.clone())?;
+
+            let argument_values = arguments
+                .iter()
+                .map(|arg| evaluate_expression(arg, env.clone()))
+                .collect::<EvaluationResult<Vec<ValueNode>>>()?;
+
+            let value = callee_expr.call(argument_values)?;
+
+            Ok(ValueNode::new(value, &expr.position))
         }
     }
 }

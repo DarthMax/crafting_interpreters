@@ -1,10 +1,11 @@
 use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::iter::Peekable;
+use std::rc::Rc;
 use std::slice::Iter;
 
 use crate::error::{LoxError, ParseError};
-use crate::expression::Expression::{Binary, Grouping, Literal, Logical, Unary, Variable};
+use crate::expression::Expression::{Binary, Call, Grouping, Literal, Logical, Unary, Variable};
 use crate::expression::LiteralType::{FalseLit, NilLit, NumberLit, StringLit, TrueLit};
 use crate::expression::{BinaryOp, Expression, ExpressionNode, LogicalOp, UnaryOp};
 use crate::position::Position;
@@ -59,6 +60,10 @@ fn declaration(tokens: &mut TokenIter) -> ParseResult<Statement> {
             token_type,
             position: _,
         }) => match token_type {
+            Fun => {
+                let _ = tokens.next();
+                function(tokens)
+            }
             Var => {
                 let _ = tokens.next();
                 var(tokens)
@@ -69,27 +74,45 @@ fn declaration(tokens: &mut TokenIter) -> ParseResult<Statement> {
     }
 }
 
-fn var(tokens: &mut TokenIter) -> ParseResult<Statement> {
-    let matcher = |token: &TokenType| matches!(token, Identifier(_));
-    let expected = "Identifier".to_string();
+fn function(tokens: &mut TokenIter) -> ParseResult<Statement> {
+    let name = consume_identifier(tokens)?;
 
-    let identifier = consume(tokens, matcher, expected, || {
-        ParseError::unexpected_end_of_stream()
-    })?;
+    consume(tokens, LeftParent)?;
 
-    let identifier = match &identifier.token_type {
-        Identifier(i) => i.clone(),
-        _ => {
-            panic!()
+    let mut parameters: Vec<String> = vec![];
+    if tokens.next_if(|t| t.token_type == RightParent).is_none() {
+        loop {
+            parameters.push(consume_identifier(tokens)?);
+
+            if tokens.peek().map_or(false, |t| t.token_type == RightParent) {
+                tokens.next();
+                break;
+            }
+
+            consume(tokens, Comma)?;
         }
-    };
+    }
+
+    let left_brace = consume(tokens, LeftBrace)?;
+    let position = left_brace.position.clone();
+    let body = block(tokens, position)?;
+
+    Ok(Statement::Function {
+        name,
+        parameters: Box::new(parameters),
+        body: Rc::new(body),
+    })
+}
+
+fn var(tokens: &mut TokenIter) -> ParseResult<Statement> {
+    let identifier = consume_identifier(tokens)?;
 
     let initializer = match tokens.next_if(|t| t.token_type == Equal) {
         Some(_) => Some(expression(tokens)?),
         None => None,
     };
 
-    consume_semicolon(tokens)?;
+    consume(tokens, Semicolon)?;
 
     Ok(Statement::Var {
         name: identifier,
@@ -188,7 +211,7 @@ fn for_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
             }
             Some(_) => {
                 let expr = Ok(Some(expression(tokens)?));
-                consume_semicolon(tokens)?;
+                consume(tokens, Semicolon)?;
                 expr
             }
             None => Err(ParseError::unexpected_end_of_stream()),
@@ -218,7 +241,7 @@ fn for_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
 
 fn print_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
     let expression = expression(tokens)?;
-    let _ = consume_semicolon(tokens)?;
+    let _ = consume(tokens, Semicolon)?;
     Ok(Statement::Print(expression))
 }
 
@@ -249,7 +272,7 @@ fn block(tokens: &mut TokenIter, opening_brace_pos: Position) -> ParseResult<Sta
 
 fn expression_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
     let expression = expression(tokens)?;
-    let _ = consume_semicolon(tokens)?;
+    let _ = consume(tokens, Semicolon)?;
     Ok(Statement::Expression(expression))
 }
 
@@ -323,8 +346,43 @@ fn unary(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
             };
             Ok(ExpressionNode::new(expression, &position))
         }
-        _ => primary(tokens),
+        _ => call(tokens),
     }
+}
+
+fn call(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
+    let mut expr = primary(tokens)?;
+
+    while let Some(t) = tokens.next_if(|t| t.token_type == LeftParent) {
+        let mut position = t.position.clone();
+
+        let mut arguments: Vec<ExpressionNode> = vec![];
+
+        if tokens.next_if(|t| t.token_type == RightParent).is_none() {
+            loop {
+                let argument = expression(tokens)?;
+                position.union(&argument.position);
+                arguments.push(argument);
+
+                if tokens.peek().map_or(false, |t| t.token_type == RightParent) {
+                    position.union(&tokens.next().unwrap().position);
+                    break;
+                }
+
+                position.union(&consume(tokens, Comma)?.position);
+            }
+        }
+
+        expr = ExpressionNode::raw(
+            Call {
+                callee: Box::new(expr),
+                arguments,
+            },
+            position,
+        );
+    }
+
+    Ok(expr)
 }
 
 fn primary(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
@@ -432,13 +490,18 @@ where
     Ok(expression_node)
 }
 
-fn consume_semicolon<'a>(tokens: &'a mut TokenIter) -> Result<&'a Token, LoxError> {
-    let matcher = |t: &TokenType| *t == Semicolon;
-    let expected = Semicolon.to_string();
-    let eof_pos = tokens.size;
-    let eof_error = || ParseError::unexpected_token_raw(Eof, Semicolon, Position::new(eof_pos, 1));
+fn consume_identifier(tokens: &mut TokenIter) -> Result<String, LoxError> {
+    let matcher = |token: &TokenType| matches!(token, Identifier(_));
+    let expected = "Identifier".to_string();
 
-    consume(tokens, matcher, expected, eof_error)
+    let identifier = _consume(tokens, matcher, expected, || {
+        ParseError::unexpected_end_of_stream()
+    })?;
+
+    match &identifier.token_type {
+        Identifier(i) => Ok(i.clone()),
+        _ => panic!(),
+    }
 }
 
 fn consume_closing_delimiter<'a>(
@@ -452,10 +515,19 @@ fn consume_closing_delimiter<'a>(
     let eof_error =
         || ParseError::unclosed_delimiter(opening_delimiter_position, &Position::new(eof_pos, 1));
 
-    consume(tokens, matcher, expected, eof_error)
+    _consume(tokens, matcher, expected, eof_error)
 }
 
-fn consume<'a, TokenMatcher, ErrorFn>(
+fn consume<'a>(tokens: &'a mut TokenIter, token_type: TokenType) -> Result<&'a Token, LoxError> {
+    let matcher = |t: &TokenType| *t == token_type;
+    let expected = token_type.to_string();
+    let eof_pos = tokens.size;
+    let eof_error = || ParseError::unexpected_token_raw(Eof, Semicolon, Position::new(eof_pos, 1));
+
+    _consume(tokens, matcher, expected, eof_error)
+}
+
+fn _consume<'a, TokenMatcher, ErrorFn>(
     tokens: &'a mut TokenIter,
     token_matcher: TokenMatcher,
     expected: String,

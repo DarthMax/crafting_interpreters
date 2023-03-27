@@ -79,8 +79,13 @@ impl Display for TokenType {
             TokenType::Star => write!(f, "*"),
             TokenType::LeftParent => write!(f, "("),
             TokenType::RightParent => write!(f, ")"),
+            TokenType::LeftBrace => write!(f, "{{"),
+            TokenType::RightBrace => write!(f, "}}"),
             TokenType::Semicolon => write!(f, ";"),
+            TokenType::Comma => write!(f, ","),
             TokenType::Eof => write!(f, "EOF"),
+            TokenType::Identifier(i) => write!(f, "{i:}"),
+
             _ => write!(f, ""),
         }
     }

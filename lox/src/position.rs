@@ -14,6 +14,13 @@ impl Position {
     pub fn end_position(&self) -> usize {
         self.absolute + self.length
     }
+
+    pub fn union(&mut self, other: &Position) {
+        let start = self.absolute.min(other.absolute);
+        let end = self.end_position().max(other.end_position());
+        self.absolute = start;
+        self.length = end - start;
+    }
 }
 
 impl From<Position> for SourceSpan {

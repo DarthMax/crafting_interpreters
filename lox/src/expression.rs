@@ -6,6 +6,7 @@ use crate::expression::Expression::*;
 use crate::expression::LiteralType::*;
 use crate::expression::UnaryOp::*;
 use crate::position::Position;
+use crate::statement::Statement;
 use crate::token::TokenType;
 use crate::token::TokenType::*;
 
@@ -19,6 +20,13 @@ impl ExpressionNode {
         ExpressionNode {
             expression,
             position: position.clone(),
+        }
+    }
+
+    pub fn raw(expression: Expression, position: Position) -> ExpressionNode {
+        ExpressionNode {
+            expression,
+            position,
         }
     }
 }
@@ -44,6 +52,10 @@ pub enum Expression {
     Assignment {
         name: String,
         value: Box<ExpressionNode>,
+    },
+    Call {
+        callee: Box<ExpressionNode>,
+        arguments: Vec<ExpressionNode>,
     },
 }
 
@@ -119,6 +131,7 @@ impl ExpressionNode {
                         pretty(value, level + 1),
                     )
                 }
+                _ => "unknown".to_string(),
             };
 
             prefix.push_str(&thing);

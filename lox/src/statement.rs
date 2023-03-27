@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::expression::ExpressionNode;
 
 pub enum Statement {
@@ -16,5 +18,10 @@ pub enum Statement {
     While {
         condition: ExpressionNode,
         body: Box<Statement>,
+    },
+    Function {
+        name: String,
+        parameters: Box<Vec<String>>,
+        body: Rc<Statement>,
     },
 }
