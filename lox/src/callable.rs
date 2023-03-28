@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::environment::Environment;
 use crate::evaluation::{evaluate_statement, EvaluationResult};
@@ -15,11 +16,15 @@ pub(crate) trait Callable {
 pub struct FunctionContainer {
     pub id: String,
     parameters: Vec<String>,
-    body: Rc<Statement>,
+    body: Arc<Statement>,
 }
 
 impl FunctionContainer {
-    pub(crate) fn new(name: &str, parameters: &[String], body: Rc<Statement>) -> FunctionContainer {
+    pub(crate) fn new(
+        name: &str,
+        parameters: &[String],
+        body: Arc<Statement>,
+    ) -> FunctionContainer {
         FunctionContainer {
             id: name.to_string(),
             parameters: parameters.to_owned(),

@@ -1,9 +1,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::callable::FunctionContainer;
 use crate::environment::Environment;
 use crate::error::LoxError;
+use crate::error::ReturnUnwind;
 use crate::error::RuntimeError;
 use crate::evaluation::Value::{Boolean, Function, Nil};
 use crate::expression::{BinaryOp, Expression, ExpressionNode, LogicalOp, UnaryOp};
@@ -85,9 +87,17 @@ pub(crate) fn evaluate_statement(
         } => {
             let container = FunctionContainer::new(name, parameters, body.clone());
             env.borrow_mut()
-                .register(name.to_string(), Some(Function(Rc::new(container))));
+                .register(name.to_string(), Some(Function(Arc::new(container))));
 
             Ok(Nil)
+        }
+        Statement::Return(return_expression) => {
+            let value = match return_expression {
+                Some(e) => evaluate_expression(e, env)?.value,
+                _ => Nil,
+            };
+
+            Err(ReturnUnwind::return_unwind(value))
         }
     }
 }

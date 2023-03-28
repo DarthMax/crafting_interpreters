@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::iter::Peekable;
-use std::rc::Rc;
 use std::slice::Iter;
+use std::sync::Arc;
 
 use crate::error::{LoxError, ParseError};
 use crate::expression::Expression::{Binary, Call, Grouping, Literal, Logical, Unary, Variable};
@@ -99,7 +99,7 @@ fn function(tokens: &mut TokenIter) -> ParseResult<Statement> {
     Ok(Statement::Function {
         name,
         parameters,
-        body: Rc::new(body),
+        body: Arc::new(body),
     })
 }
 
@@ -136,6 +136,10 @@ fn statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
             For => {
                 let _ = tokens.next();
                 for_statement(tokens)
+            }
+            Return => {
+                let _ = tokens.next();
+                return_statement(tokens)
             }
             Print => {
                 let _ = tokens.next();
@@ -236,6 +240,23 @@ fn for_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
     }
 
     Ok(body)
+}
+
+fn return_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
+    let return_expression = match tokens.peek() {
+        Some(Token {
+            token_type: Semicolon,
+            position: _,
+        }) => {
+            tokens.next();
+            None
+        }
+        _ => Some(expression(tokens)?),
+    };
+
+    consume(tokens, Semicolon)?;
+
+    Ok(Statement::Return(return_expression))
 }
 
 fn print_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {

@@ -1,9 +1,11 @@
+use std::fmt::{Display, Formatter};
+
 use miette::Diagnostic;
 use thiserror::Error;
 
 use crate::position::Position;
 use crate::token::{Token, TokenType};
-use crate::value::ValueNode;
+use crate::value::{Value, ValueNode};
 
 #[derive(Diagnostic, Error, Debug)]
 pub enum LoxError {
@@ -13,6 +15,9 @@ pub enum LoxError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     ParseError(ParseError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ReturnUnwind(ReturnUnwind),
 }
 
 #[derive(Diagnostic, Error, Debug)]
@@ -131,5 +136,22 @@ impl RuntimeError {
 
     pub(crate) fn unknown_identifier(variable: String, position: Position) -> LoxError {
         LoxError::RuntimeError(RuntimeError::UnknownIdentifier { variable, position })
+    }
+}
+
+#[derive(Diagnostic, Error, Debug)]
+pub struct ReturnUnwind {
+    pub(crate) return_value: Value,
+}
+
+impl ReturnUnwind {
+    pub(crate) fn return_unwind(return_value: Value) -> LoxError {
+        LoxError::ReturnUnwind(ReturnUnwind { return_value })
+    }
+}
+
+impl Display for ReturnUnwind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Return({})", self.return_value)
     }
 }

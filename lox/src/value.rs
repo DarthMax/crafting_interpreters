@@ -1,8 +1,9 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::callable::{Callable, FunctionContainer};
+use crate::error::LoxError::ReturnUnwind;
 use crate::error::RuntimeError;
 use crate::evaluation::EvaluationResult;
 use crate::expression::LiteralType;
@@ -13,8 +14,8 @@ pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
-    Str(Rc<str>),
-    Function(Rc<FunctionContainer>),
+    Str(Arc<str>),
+    Function(Arc<FunctionContainer>),
 }
 
 impl Display for Value {
@@ -88,7 +89,7 @@ impl ValueNode {
         }
     }
 
-    pub(crate) fn as_str(&self) -> EvaluationResult<Rc<str>> {
+    pub(crate) fn as_str(&self) -> EvaluationResult<Arc<str>> {
         match &self.value {
             Value::Str(str) => Ok(str.clone()),
             _ => Err(RuntimeError::type_error(self, "String".to_string())),
@@ -97,7 +98,11 @@ impl ValueNode {
 
     pub(crate) fn call(&self, arguments: Vec<ValueNode>) -> EvaluationResult<Value> {
         match &self.value {
-            Value::Function(container) => container.call(arguments),
+            Value::Function(container) => match container.call(arguments) {
+                Ok(v) => Ok(v),
+                Err(ReturnUnwind(r)) => Ok(r.return_value),
+                error => error,
+            },
             _ => Err(RuntimeError::type_error(self, "Callable".to_string())),
         }
     }
