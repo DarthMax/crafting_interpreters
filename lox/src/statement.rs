@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::rc::Rc;
 
 use crate::expression::ExpressionNode;
 
@@ -22,7 +22,7 @@ pub enum Statement {
     Function {
         name: String,
         parameters: Vec<String>,
-        body: Arc<Statement>,
+        body: Rc<Statement>,
     },
     Return(Option<ExpressionNode>),
 }

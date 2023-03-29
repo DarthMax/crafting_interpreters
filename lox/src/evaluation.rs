@@ -1,27 +1,35 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
 
 use crate::callable::FunctionContainer;
 use crate::environment::Environment;
 use crate::error::LoxError;
-use crate::error::ReturnUnwind;
 use crate::error::RuntimeError;
+use crate::evaluation::ReturnOrError::{Error, Return};
 use crate::evaluation::Value::{Boolean, Function, Nil};
 use crate::expression::{BinaryOp, Expression, ExpressionNode, LogicalOp, UnaryOp};
 use crate::statement::Statement;
 use crate::value::{Value, ValueNode};
 
-pub type EvaluationResult<T> = Result<T, LoxError>;
+pub(crate) enum ReturnOrError {
+    Error(LoxError),
+    Return(Value),
+}
+
+pub(crate) type EvaluationResult<T> = Result<T, ReturnOrError>;
 
 pub(crate) fn evaluate(
     statements: &Vec<Statement>,
     env: Rc<RefCell<Environment>>,
-) -> EvaluationResult<Value> {
-    let mut result: EvaluationResult<Value> = Ok(Nil);
+) -> Result<Value, LoxError> {
+    let mut result: Result<Value, LoxError> = Ok(Nil);
 
     for stmt in statements {
-        result = Ok(evaluate_statement(stmt, env.clone())?)
+        result = match evaluate_statement(stmt, env.clone()) {
+            Ok(v) => Ok(v),
+            Err(Error(e)) => Err(e),
+            _ => panic!(),
+        }
     }
 
     result
@@ -87,7 +95,7 @@ pub(crate) fn evaluate_statement(
         } => {
             let container = FunctionContainer::new(name, parameters, body.clone(), env.clone());
             env.borrow_mut()
-                .register(name.to_string(), Some(Function(Arc::new(container))));
+                .register(name.to_string(), Some(Function(Rc::new(container))));
 
             Ok(Nil)
         }
@@ -97,7 +105,7 @@ pub(crate) fn evaluate_statement(
                 _ => Nil,
             };
 
-            Err(ReturnUnwind::return_unwind(value))
+            Err(Return(value))
         }
     }
 }
@@ -161,23 +169,23 @@ fn evaluate_expression(
         }
         Expression::Variable(name) => match env.borrow().get(name) {
             Some(Some(value)) => Ok(ValueNode::new(value, &expr.position)),
-            Some(None) => Err(RuntimeError::uninitialized_variable(
+            Some(None) => Err(Error(RuntimeError::uninitialized_variable(
                 name.to_string(),
                 expr.position.clone(),
-            )),
-            None => Err(RuntimeError::unknown_identifier(
+            ))),
+            None => Err(Error(RuntimeError::unknown_identifier(
                 name.to_string(),
                 expr.position.clone(),
-            )),
+            ))),
         },
         Expression::Assignment { name, value } => {
             let value = evaluate_expression(value, env.clone())?;
             match env.borrow_mut().assign(name, value.value) {
                 true => Ok(ValueNode::new(Nil, &expr.position)),
-                false => Err(RuntimeError::unknown_identifier(
+                false => Err(Error(RuntimeError::unknown_identifier(
                     name.to_string(),
                     expr.position.clone(),
-                )),
+                ))),
             }
         }
         Expression::Call { callee, arguments } => {

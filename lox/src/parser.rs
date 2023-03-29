@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::iter::Peekable;
+use std::rc::Rc;
 use std::slice::Iter;
-use std::sync::Arc;
 
 use crate::error::{LoxError, ParseError};
 use crate::expression::Expression::{Binary, Call, Grouping, Literal, Logical, Unary, Variable};
@@ -99,7 +99,7 @@ fn function(tokens: &mut TokenIter) -> ParseResult<Statement> {
     Ok(Statement::Function {
         name,
         parameters,
-        body: Arc::new(body),
+        body: Rc::new(body),
     })
 }
 

@@ -1,11 +1,11 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
-use std::sync::Arc;
+use std::rc::Rc;
 
 use crate::callable::{Callable, FunctionContainer};
-use crate::error::LoxError::ReturnUnwind;
 use crate::error::RuntimeError;
-use crate::evaluation::EvaluationResult;
+use crate::evaluation::ReturnOrError::{Error, Return};
+use crate::evaluation::{EvaluationResult, ReturnOrError};
 use crate::expression::LiteralType;
 use crate::position::Position;
 
@@ -14,8 +14,8 @@ pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
-    Str(Arc<str>),
-    Function(Arc<FunctionContainer>),
+    Str(Rc<str>),
+    Function(Rc<FunctionContainer>),
 }
 
 impl Display for Value {
@@ -77,7 +77,7 @@ impl ValueNode {
     pub(crate) fn as_number(&self) -> EvaluationResult<f64> {
         match self.value {
             Value::Number(num) => Ok(num),
-            _ => Err(RuntimeError::type_error(self, "Number".to_string())),
+            _ => Err(Error(RuntimeError::type_error(self, "Number".to_string()))),
         }
     }
 
@@ -85,14 +85,14 @@ impl ValueNode {
         match self.value {
             Value::Boolean(b) => Ok(b),
             Value::Nil => Ok(false),
-            _ => Err(RuntimeError::type_error(self, "Boolean".to_string())),
+            _ => Err(Error(RuntimeError::type_error(self, "Boolean".to_string()))),
         }
     }
 
-    pub(crate) fn as_str(&self) -> EvaluationResult<Arc<str>> {
+    pub(crate) fn as_str(&self) -> EvaluationResult<Rc<str>> {
         match &self.value {
             Value::Str(str) => Ok(str.clone()),
-            _ => Err(RuntimeError::type_error(self, "String".to_string())),
+            _ => Err(Error(RuntimeError::type_error(self, "String".to_string()))),
         }
     }
 
@@ -100,10 +100,13 @@ impl ValueNode {
         match &self.value {
             Value::Function(container) => match container.call(arguments) {
                 Ok(v) => Ok(v),
-                Err(ReturnUnwind(r)) => Ok(r.return_value),
+                Err(Return(r)) => Ok(r),
                 error => error,
             },
-            _ => Err(RuntimeError::type_error(self, "Callable".to_string())),
+            _ => Err(Error(RuntimeError::type_error(
+                self,
+                "Callable".to_string(),
+            ))),
         }
     }
 
@@ -121,7 +124,7 @@ impl ValueNode {
                 let appended = format!("{}{}", l, other.as_str()?).into();
                 Ok(Value::Str(appended))
             }
-            _ => Err(RuntimeError::type_error(self, "Number".to_string())),
+            _ => Err(Error(RuntimeError::type_error(self, "Number".to_string()))),
         }
     }
 
@@ -133,10 +136,10 @@ impl ValueNode {
         match &self.value {
             Value::Number(l) => Ok(Value::Number(l * other.as_number()?)),
             Value::Str(l) => Ok(Value::Str(l.repeat(other.as_number()? as usize).into())),
-            _ => Err(RuntimeError::type_error(
+            _ => Err(Error(RuntimeError::type_error(
                 self,
                 "Number or String".to_string(),
-            )),
+            ))),
         }
     }
 
