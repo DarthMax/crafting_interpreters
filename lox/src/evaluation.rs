@@ -85,7 +85,7 @@ pub(crate) fn evaluate_statement(
             parameters,
             body,
         } => {
-            let container = FunctionContainer::new(name, parameters, body.clone());
+            let container = FunctionContainer::new(name, parameters, body.clone(), env.clone());
             env.borrow_mut()
                 .register(name.to_string(), Some(Function(Arc::new(container))));
 

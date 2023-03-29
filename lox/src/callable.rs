@@ -17,6 +17,7 @@ pub struct FunctionContainer {
     pub id: String,
     parameters: Vec<String>,
     body: Arc<Statement>,
+    closure: Rc<RefCell<Environment>>,
 }
 
 impl FunctionContainer {
@@ -24,11 +25,13 @@ impl FunctionContainer {
         name: &str,
         parameters: &[String],
         body: Arc<Statement>,
+        closure: Rc<RefCell<Environment>>,
     ) -> FunctionContainer {
         FunctionContainer {
             id: name.to_string(),
             parameters: parameters.to_owned(),
             body,
+            closure,
         }
     }
 }
@@ -41,7 +44,7 @@ impl PartialEq for FunctionContainer {
 
 impl Callable for FunctionContainer {
     fn call(&self, arguments: Vec<ValueNode>) -> EvaluationResult<Value> {
-        let mut env = Environment::empty();
+        let mut env = Environment::wrap(self.closure.clone());
 
         for (key, value) in self.parameters.iter().zip(arguments) {
             env.register(key.to_string(), Some(value.value))
