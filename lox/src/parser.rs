@@ -4,7 +4,9 @@ use std::rc::Rc;
 use std::slice::Iter;
 
 use crate::error::{LoxError, ParseError};
-use crate::expression::Expression::{Binary, Call, Grouping, Literal, Logical, Unary, Variable};
+use crate::expression::Expression::{
+    Binary, Call, Grouping, Lambda, Literal, Logical, Unary, Variable,
+};
 use crate::expression::LiteralType::{FalseLit, NilLit, NumberLit, StringLit, TrueLit};
 use crate::expression::{BinaryOp, Expression, ExpressionNode, LogicalOp, UnaryOp};
 use crate::position::Position;
@@ -76,6 +78,20 @@ fn declaration(tokens: &mut TokenIter) -> ParseResult<Statement> {
 fn function(tokens: &mut TokenIter) -> ParseResult<Statement> {
     let name = consume_identifier(tokens)?;
 
+    let parameters = parse_function_arguments(tokens)?;
+
+    let left_brace = consume(tokens, LeftBrace)?;
+    let position = left_brace.position.clone();
+    let body = block(tokens, position)?;
+
+    Ok(Statement::Function {
+        name,
+        parameters,
+        body: Rc::new(body),
+    })
+}
+
+fn parse_function_arguments(tokens: &mut TokenIter) -> ParseResult<Vec<String>> {
     consume(tokens, LeftParent)?;
 
     let mut parameters: Vec<String> = vec![];
@@ -92,15 +108,7 @@ fn function(tokens: &mut TokenIter) -> ParseResult<Statement> {
         }
     }
 
-    let left_brace = consume(tokens, LeftBrace)?;
-    let position = left_brace.position.clone();
-    let body = block(tokens, position)?;
-
-    Ok(Statement::Function {
-        name,
-        parameters,
-        body: Rc::new(body),
-    })
+    Ok(parameters)
 }
 
 fn var(tokens: &mut TokenIter) -> ParseResult<Statement> {
@@ -297,31 +305,51 @@ fn expression_statement(tokens: &mut TokenIter) -> ParseResult<Statement> {
 }
 
 fn expression(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
-    assignment(tokens)
+    lambda(tokens)
+}
+
+fn lambda(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
+    match tokens.next_if(|t| t.token_type == Fun) {
+        Some(t) => {
+            let p = t.position.clone();
+            let arguments = parse_function_arguments(tokens)?;
+            let left_brace = consume(tokens, LeftBrace)?;
+            let position = left_brace.position.clone();
+            let body = block(tokens, position)?;
+
+            let expr = Lambda {
+                arguments,
+                body: Rc::new(body),
+            };
+
+            Ok(ExpressionNode::raw(expr, p))
+        }
+        _ => assignment(tokens),
+    }
 }
 
 fn assignment(tokens: &mut TokenIter) -> ParseResult<ExpressionNode> {
-    let expression = or(tokens)?;
+    let expr = or(tokens)?;
 
     match tokens.next_if(|n| n.token_type == Equal) {
         Some(_) => {
-            let value = assignment(tokens)?;
-            match expression.expression {
+            let value = expression(tokens)?;
+            match expr.expression {
                 Variable(name) => {
-                    let length = value.position.end_position() - expression.position.absolute;
+                    let length = value.position.end_position() - expr.position.absolute;
                     let assignment = Expression::Assignment {
                         name,
                         value: Box::new(value),
                     };
 
-                    let position = Position::new(expression.position.absolute, length);
+                    let position = Position::new(expr.position.absolute, length);
 
                     Ok(ExpressionNode::new(assignment, &position))
                 }
-                _ => Err(ParseError::invalid_assignment_target(&expression.position)),
+                _ => Err(ParseError::invalid_assignment_target(&expr.position)),
             }
         }
-        None => Ok(expression),
+        None => Ok(expr),
     }
 }
 

@@ -1,11 +1,13 @@
 use std::fmt;
 use std::fmt::Formatter;
+use std::rc::Rc;
 
 use crate::expression::BinaryOp::*;
 use crate::expression::Expression::*;
 use crate::expression::LiteralType::*;
 use crate::expression::UnaryOp::*;
 use crate::position::Position;
+use crate::statement::Statement;
 use crate::token::TokenType;
 use crate::token::TokenType::*;
 
@@ -51,6 +53,10 @@ pub enum Expression {
     Assignment {
         name: String,
         value: Box<ExpressionNode>,
+    },
+    Lambda {
+        arguments: Vec<String>,
+        body: Rc<Statement>,
     },
     Call {
         callee: Box<ExpressionNode>,

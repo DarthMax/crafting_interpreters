@@ -188,6 +188,11 @@ fn evaluate_expression(
                 ))),
             }
         }
+        Expression::Lambda { arguments, body } => {
+            let container = FunctionContainer::new("", arguments, body.clone(), env.clone());
+            let function = Function(Rc::new(container));
+            Ok(ValueNode::new(function, &expr.position))
+        }
         Expression::Call { callee, arguments } => {
             let callee_expr = evaluate_expression(callee, env.clone())?;
 
