@@ -1,11 +1,9 @@
-use std::fmt::{Display, Formatter};
-
 use miette::Diagnostic;
 use thiserror::Error;
 
 use crate::position::Position;
 use crate::token::{Token, TokenType};
-use crate::value::{Value, ValueNode};
+use crate::value::ValueNode;
 
 #[derive(Diagnostic, Error, Debug)]
 pub enum LoxError {

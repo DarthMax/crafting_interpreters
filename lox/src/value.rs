@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use crate::callable::{Callable, FunctionContainer};
 use crate::error::RuntimeError;
+use crate::evaluation::EvaluationResult;
 use crate::evaluation::ReturnOrError::{Error, Return};
-use crate::evaluation::{EvaluationResult, ReturnOrError};
 use crate::expression::LiteralType;
 use crate::position::Position;
 

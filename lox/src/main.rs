@@ -1,10 +1,15 @@
 extern crate core;
 
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::ffi::OsString;
-use std::io::Write;
 use std::rc::Rc;
 use std::{env, fs, io};
+
+use reedline::{
+    default_emacs_keybindings, EditCommand, Emacs, KeyCode, KeyModifiers, Prompt, PromptEditMode,
+    PromptHistorySearch, PromptHistorySearchStatus, Reedline, ReedlineEvent, Signal,
+};
 
 use crate::environment::Environment;
 use crate::evaluation::evaluate;
@@ -49,36 +54,35 @@ fn run_file(file: OsString) -> io::Result<()> {
     let source = fs::read_to_string(file)?;
     let env = Rc::new(RefCell::new(Environment::empty()));
 
-    parse(source, env);
+    run(source, env);
     Ok(())
 }
 
 fn run_repl() -> io::Result<()> {
-    let mut line_number = 0_u32;
-    let mut input = String::new();
+    let mut line_editor = create_repl();
+    let mut prompt = ReplPrompt { line: 0 };
+
     let env = Rc::new(RefCell::new(Environment::empty()));
 
     loop {
-        print!("lox ({line_number})> ");
-        io::stdout().flush()?;
-
-        input.clear();
-        io::stdin().read_line(&mut input)?;
-
-        if input.trim().eq("quit") {
-            println!("Good bye!");
-            break;
+        let sig = line_editor.read_line(&prompt);
+        match sig {
+            Ok(Signal::Success(buffer)) => {
+                run(buffer, env.clone());
+            }
+            Ok(Signal::CtrlD) | Ok(Signal::CtrlC) => {
+                println!("\nGood Bye!");
+                break;
+            }
+            _ => todo!(),
         }
-
-        parse(input.clone(), env.clone());
-
-        line_number += 1;
+        prompt.line += 1;
     }
 
     Ok(())
 }
 
-fn parse(source: String, env: Rc<RefCell<Environment>>) {
+fn run(source: String, env: Rc<RefCell<Environment>>) {
     let scanner = Scanner::new(source.clone());
     let tokens = scanner.scan();
     match parser::parse(&tokens) {
@@ -88,4 +92,54 @@ fn parse(source: String, env: Rc<RefCell<Environment>>) {
         },
         Err(error) => println!("{:?}", miette::Report::new(error).with_source_code(source)),
     };
+}
+
+fn create_repl() -> Reedline {
+    let mut keybindings = default_emacs_keybindings();
+
+    keybindings.add_binding(
+        KeyModifiers::ALT,
+        KeyCode::Enter,
+        ReedlineEvent::Edit(vec![EditCommand::InsertNewline]),
+    );
+
+    Reedline::create().with_edit_mode(Box::new(Emacs::new(keybindings)))
+}
+
+struct ReplPrompt {
+    line: usize,
+}
+
+impl Prompt for ReplPrompt {
+    fn render_prompt_left(&self) -> Cow<str> {
+        Cow::Owned(format!("lox:{}", self.line))
+    }
+
+    fn render_prompt_right(&self) -> Cow<str> {
+        Cow::Owned("".to_string())
+    }
+
+    fn render_prompt_indicator(&self, _: PromptEditMode) -> Cow<str> {
+        Cow::Owned("> ".to_string())
+    }
+
+    fn render_prompt_multiline_indicator(&self) -> Cow<str> {
+        Cow::Owned(format!("...:{}> ", self.line))
+    }
+
+    fn render_prompt_history_search_indicator(
+        &self,
+        history_search: PromptHistorySearch,
+    ) -> Cow<str> {
+        let prefix = match history_search.status {
+            PromptHistorySearchStatus::Passing => "",
+            PromptHistorySearchStatus::Failing => "failing ",
+        };
+        // NOTE: magic strings, given there is logic on how these compose I am not sure if it
+        // is worth extracting in to static constant
+        Cow::Owned(format!(
+            "({}reverse-search: {}) ",
+            prefix, history_search.term
+        ))
+    }
 }
